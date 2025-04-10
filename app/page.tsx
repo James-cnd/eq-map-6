@@ -1,4 +1,4 @@
-import EarthquakeMap from "@/components/earthquake-map"
+import EarthquakeMap from "../components/earthquake-map"
 
 export default function Home() {
     return (
