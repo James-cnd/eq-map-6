@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
+import { X, Bell, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { VOLCANIC_FISSURES } from "@/types/fissures"
+import OverlaySettings from "@/components/overlay-settings"
 
 interface MapSettingsProps {
   onClose: () => void
@@ -37,6 +38,7 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
   const [localShowBerms, setLocalShowBerms] = useState(showBerms)
   const [localShowFissures, setLocalShowFissures] = useState(showFissures)
   const [localEnabledFissures, setLocalEnabledFissures] = useState<string[]>(enabledFissures)
+  const [showOverlaySettings, setShowOverlaySettings] = useState(false)
 
   // Toggle a fissure on/off
   const toggleFissure = (fissureId: string) => {
@@ -272,6 +274,48 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
           </Button>
         </div>
       </div>
+
+      <div className="fixed bottom-4 left-4 space-x-2 z-[1000]">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowOverlaySettings(true)}
+          className="bg-gray-900/90 border-gray-700 hover:bg-gray-800"
+        >
+          <Layers className="h-[1.2rem] w-[1.2rem]" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowNotificationSettings(true)}
+          className="bg-gray-900/90 border-gray-700 hover:bg-gray-800"
+        >
+          <Bell className="h-[1.2rem] w-[1.2rem]" />
+        </Button>
+      </div>
+
+      {/* Add the OverlaySettings component */}
+      {showOverlaySettings && (
+        <div className="fixed inset-0 bg-black/50 z-[1001] flex items-center justify-center p-4">
+          <OverlaySettings
+            onClose={() => setShowOverlaySettings(false)}
+            showZoneHighlighting={showZoneHighlighting}
+            setShowZoneHighlighting={setShowZoneHighlighting}
+            showHotspotButtons={showHotspotButtons}
+            setShowHotspotButtons={setShowHotspotButtons}
+            showSeismicStations={showSeismicStations}
+            setShowSeismicStations={setShowSeismicStations}
+            showGpsStations={showGpsStations}
+            setShowGpsStations={setShowGpsStations}
+            showLavaFlows={showLavaFlows}
+            setShowLavaFlows={setShowLavaFlows}
+            showBerms={showBerms}
+            setShowBerms={setShowBerms}
+            showFissures={showFissures}
+            setShowFissures={setShowFissures}
+          />
+        </div>
+      )}
     </div>
   )
 }
