@@ -15,6 +15,7 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { DraggablePanel } from "@/components/draggable-panel"
+import OverlaySettings from "@/components/overlay-settings"
 
 // Replace static imports with dynamic imports for heavy components
 
