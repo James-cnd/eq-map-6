@@ -15,7 +15,6 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { DraggablePanel } from "@/components/draggable-panel"
-import OverlaySettings from "@/components/overlay-settings"
 
 // Replace static imports with dynamic imports for heavy components
 
@@ -73,6 +72,9 @@ const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
 // Add this import at the top of the file
 import WelcomeMessage from "@/components/welcome-message"
 
+// Add import after other imports
+import MapSettings from "@/components/map-settings"
+
 // Make sure the component is exported as default
 export default function EarthquakeMap() {
   // Rest of the component remains the same
@@ -98,6 +100,7 @@ export default function EarthquakeMap() {
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [showRaspberryShakeInfo, setShowRaspberryShakeInfo] = useState(false)
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
+  const [showMapSettings, setShowMapSettings] = useState(false)
 
   // Map feature toggles - GPS stations are always visible
   const [showSeismicStations] = useLocalStorage("earthquakeShowSeismicStations", false)
@@ -270,9 +273,6 @@ export default function EarthquakeMap() {
   // Declare selectedZone with a default value (e.g., "all")
   const [selectedZone, setSelectedZone] = useState("all")
 
-  // Add with other state declarations
-  const [showOverlaySettings, setShowOverlaySettings] = useState(false)
-
   if (isLoading) {
     return (
       <div className="h-full w-full">
@@ -366,6 +366,18 @@ export default function EarthquakeMap() {
 
       {/* Control buttons - with updated icons */}
       <div className="fixed bottom-4 left-4 z-[1001] flex gap-2">
+        {/* Add Map Settings button before other buttons */}
+        <Button
+          variant="outline"
+          size="icon"
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showMapSettings ? "ring-2 ring-white" : ""}`}
+          onClick={() => setShowMapSettings(true)}
+          title="Map Layer Settings"
+          aria-label="Map Layer Settings"
+        >
+          <Layers className="h-5 w-5" />
+        </Button>
+
         <Button
           variant="outline"
           size="icon"
@@ -440,19 +452,6 @@ export default function EarthquakeMap() {
           {recentEarthquakeCount > highActivityThreshold && (
             <span className="absolute -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3"></span>
           )}
-        </Button>
-
-        {/* Add the new button for overlay settings */}
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showOverlaySettings ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => setShowOverlaySettings(true)}
-          title="Map Overlays"
-          aria-label="Map Overlays"
-        >
-          <Layers className="h-5 w-5" />
         </Button>
       </div>
 
@@ -570,65 +569,6 @@ export default function EarthquakeMap() {
         </DraggablePanel>
       )}
 
-      {/* Add with other modals */}
-      {showOverlaySettings && (
-        <Modal onClose={() => setShowOverlaySettings(false)}>
-          <div className="space-y-4 p-4">
-            <h2 className="text-xl font-bold">Map Overlays</h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-earthquakes">Show Earthquakes</Label>
-                <Switch
-                  id="show-earthquakes"
-                  checked={showEarthquakes}
-                  onCheckedChange={setShowEarthquakes}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-seismic">Seismic Stations</Label>
-                <Switch
-                  id="show-seismic"
-                  checked={showSeismicStations}
-                  onCheckedChange={setShowSeismicStations}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-gps">GPS Stations</Label>
-                <Switch
-                  id="show-gps"
-                  checked={showGpsStations}
-                  onCheckedChange={setShowGpsStations}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-seismometers">Seismometers</Label>
-                <Switch
-                  id="show-seismometers"
-                  checked={showSeismometers}
-                  onCheckedChange={setShowSeismometers}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-lava">Lava Flows</Label>
-                <Switch
-                  id="show-lava"
-                  checked={showLavaFlows}
-                  onCheckedChange={setShowLavaFlows}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-berms">Defensive Berms</Label>
-                <Switch
-                  id="show-berms"
-                  checked={showBerms}
-                  onCheckedChange={setShowBerms}
-                />
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {showWelcomeMessage && <WelcomeMessage onClose={() => setShowWelcomeMessage(false)} />}
 
       {/* Add the welcome message component to the JSX, right before the closing </div> of the main component */}
@@ -637,6 +577,13 @@ export default function EarthquakeMap() {
           defaultVideoId={localStorage.getItem("earthquakeYoutubeVideoId") || "xDRWMU9JzKA"}
           onClose={() => setShowYoutubePlayer(false)}
         />
+      )}
+
+      {/* Add MapSettings modal */}
+      {showMapSettings && (
+        <Modal onClose={() => setShowMapSettings(false)}>
+          <MapSettings onClose={() => setShowMapSettings(false)} />
+        </Modal>
       )}
     </div>
   )
