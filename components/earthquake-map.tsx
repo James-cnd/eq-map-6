@@ -366,7 +366,7 @@ export default function EarthquakeMap() {
 
       {/* Control buttons - with updated icons */}
       <div className="fixed bottom-4 left-4 z-[1001] flex gap-2">
-        {/* Add Map Settings button before other buttons */}
+        {/* Map Settings button */}
         <Button
           variant="outline"
           size="icon"
