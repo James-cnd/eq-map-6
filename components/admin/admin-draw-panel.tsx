@@ -77,6 +77,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
   const [activeTab, setActiveTab] = useState("dashboard") // Changed default to dashboard
   const [drawControlLoaded, setDrawControlLoaded] = useState(false)
   const [isLoadingDrawTools, setIsLoadingDrawTools] = useState(false)
+  const [showLogoutButton, setShowLogoutButton] = useState(false)
 
   // Refs for Leaflet draw control and drawn items
   const drawControlRef = useRef<any>(null)
@@ -211,7 +212,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       setTimeout(() => {
         const defaultDrawControl = document.querySelector(".leaflet-draw.leaflet-control")
         if (defaultDrawControl) {
-          ;(defaultDrawControl as HTMLElement).style.display = "none"
+          ; (defaultDrawControl as HTMLElement).style.display = "none"
         }
       }, 100)
 
@@ -268,7 +269,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const drawPolylineButton = document.querySelector(".leaflet-draw-draw-polyline")
         if (drawPolylineButton) {
-          ;(drawPolylineButton as HTMLElement).click()
+          ; (drawPolylineButton as HTMLElement).click()
         }
       }
     })
@@ -293,7 +294,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const drawPolygonButton = document.querySelector(".leaflet-draw-draw-polygon")
         if (drawPolygonButton) {
-          ;(drawPolygonButton as HTMLElement).click()
+          ; (drawPolygonButton as HTMLElement).click()
         }
       }
     })
@@ -317,7 +318,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const editButton = document.querySelector(".leaflet-draw-edit-edit")
         if (editButton) {
-          ;(editButton as HTMLElement).click()
+          ; (editButton as HTMLElement).click()
         }
       }
     })
@@ -372,6 +373,17 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       initializeDrawingTools()
     }
   }, [activeTab, isAuthenticated, drawControlLoaded])
+
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    setUsername("")
+    setPassword("")
+    if (drawControlRef.current) {
+      map.removeControl(drawControlRef.current)
+    }
+    // Clean up any admin-specific UI elements
+    setDrawControlLoaded(false)
+  }
 
   // Login form
   if (!isAuthenticated) {
@@ -508,6 +520,14 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
           </div>
         </TabsContent>
       </Tabs>
+      {isAuthenticated && (
+        <Button
+          onClick={handleLogout}
+          className="absolute top-4 right-4 bg-red-600 hover:bg-red-700"
+        >
+          Logout
+        </Button>
+      )}
     </div>
   )
 }
