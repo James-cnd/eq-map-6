@@ -8,7 +8,7 @@ import { EarthquakeDetails } from "@/components/earthquake-details"
 import type { Earthquake } from "@/types/earthquake"
 import { ICELAND_ZONES } from "@/types/zones"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Settings, Globe, BookOpen, Activity, Coffee, Pencil, Bell, Youtube } from "lucide-react"
+import { AlertCircle, Settings, Globe, BookOpen, Activity, Coffee, Pencil, Bell, Youtube, Layers } from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import EarthquakeSidebar from "@/components/earthquake-sidebar"
 import dynamic from "next/dynamic"
@@ -195,7 +195,7 @@ export default function EarthquakeMap() {
 
   // Force remount of map component when window is resized
   useEffect(() => {
-    const handleResize = () => {}
+    const handleResize = () => { }
 
     // Add resize listener with debounce
     let resizeTimer: NodeJS.Timeout
@@ -268,6 +268,9 @@ export default function EarthquakeMap() {
 
   // Declare selectedZone with a default value (e.g., "all")
   const [selectedZone, setSelectedZone] = useState("all")
+
+  // Add with other state declarations
+  const [showOverlaySettings, setShowOverlaySettings] = useState(false)
 
   if (isLoading) {
     return (
@@ -365,9 +368,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showSidebar && activePanel === "list" ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showSidebar && activePanel === "list" ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => togglePanel("list")}
           title="Recent Earthquakes"
           aria-label="Recent Earthquakes"
@@ -378,9 +380,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showSidebar && activePanel === "settings" ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showSidebar && activePanel === "settings" ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => togglePanel("settings")}
           title="Filter Settings"
           aria-label="Filter Settings"
@@ -391,9 +392,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showEruptionInfo ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showEruptionInfo ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => setShowEruptionInfo(!showEruptionInfo)}
           title="Eruption Information"
           aria-label="Eruption Information"
@@ -404,9 +404,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showYoutubePlayer ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showYoutubePlayer ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => setShowYoutubePlayer(!showYoutubePlayer)}
           title="Live Feed"
           aria-label="Live Feed"
@@ -417,9 +416,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showFactsPanel ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showFactsPanel ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => setShowFactsPanel(!showFactsPanel)}
           title="Earthquake Facts"
           aria-label="Earthquake Facts"
@@ -431,9 +429,8 @@ export default function EarthquakeMap() {
         <Button
           variant="outline"
           size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showNotificationSettings ? "ring-2 ring-white" : ""
-          }`}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showNotificationSettings ? "ring-2 ring-white" : ""
+            }`}
           onClick={() => setShowNotificationSettings(true)}
           title="Notification Settings"
           aria-label="Notification Settings"
@@ -443,16 +440,28 @@ export default function EarthquakeMap() {
             <span className="absolute -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3"></span>
           )}
         </Button>
+
+        {/* Add the new button for overlay settings */}
+        <Button
+          variant="outline"
+          size="icon"
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showOverlaySettings ? "ring-2 ring-white" : ""
+            }`}
+          onClick={() => setShowOverlaySettings(true)}
+          title="Map Overlays"
+          aria-label="Map Overlays"
+        >
+          <Layers className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Sidebar panel - always shown with list by default, replaced with settings when clicked */}
       {showSidebar && (
         <div
-          className={`fixed z-[1002] bg-gray-900/95 border-gray-700 shadow-lg text-white transition-all duration-300 ease-in-out ${
-            isMobile
-              ? "bottom-16 left-0 right-0 max-h-[70vh] rounded-t-xl border-t"
-              : "top-0 bottom-0 right-0 w-80 border-l"
-          }`}
+          className={`fixed z-[1002] bg-gray-900/95 border-gray-700 shadow-lg text-white transition-all duration-300 ease-in-out ${isMobile
+            ? "bottom-16 left-0 right-0 max-h-[70vh] rounded-t-xl border-t"
+            : "top-0 bottom-0 right-0 w-80 border-l"
+            }`}
           style={{ pointerEvents: "auto" }}
         >
           <div className="flex justify-between items-center p-3 border-b border-gray-700">
@@ -560,16 +569,74 @@ export default function EarthquakeMap() {
         </DraggablePanel>
       )}
 
-      {/* Youtube Player - centered initially */}
-      {showYoutubePlayer && (
-        <YoutubePlayer
-          onClose={() => setShowYoutubePlayer(false)}
-          defaultVideoId={localStorage.getItem("earthquakeYoutubeVideoId") || "xDRWMU9JzKA"}
-        />
+      {/* Add with other modals */}
+      {showOverlaySettings && (
+        <Modal onClose={() => setShowOverlaySettings(false)}>
+          <div className="space-y-4 p-4">
+            <h2 className="text-xl font-bold">Map Overlays</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-earthquakes">Show Earthquakes</Label>
+                <Switch
+                  id="show-earthquakes"
+                  checked={showEarthquakes}
+                  onCheckedChange={setShowEarthquakes}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-seismic">Seismic Stations</Label>
+                <Switch
+                  id="show-seismic"
+                  checked={showSeismicStations}
+                  onCheckedChange={setShowSeismicStations}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-gps">GPS Stations</Label>
+                <Switch
+                  id="show-gps"
+                  checked={showGpsStations}
+                  onCheckedChange={setShowGpsStations}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-seismometers">Seismometers</Label>
+                <Switch
+                  id="show-seismometers"
+                  checked={showSeismometers}
+                  onCheckedChange={setShowSeismometers}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-lava">Lava Flows</Label>
+                <Switch
+                  id="show-lava"
+                  checked={showLavaFlows}
+                  onCheckedChange={setShowLavaFlows}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-berms">Defensive Berms</Label>
+                <Switch
+                  id="show-berms"
+                  checked={showBerms}
+                  onCheckedChange={setShowBerms}
+                />
+              </div>
+            </div>
+          </div>
+        </Modal>
       )}
 
-      {/* Add the welcome message component to the JSX, right before the closing </div> of the main component */}
       {showWelcomeMessage && <WelcomeMessage onClose={() => setShowWelcomeMessage(false)} />}
+
+      {/* Add the welcome message component to the JSX, right before the closing </div> of the main component */}
+      {showYoutubePlayer && (
+        <YoutubePlayer
+          defaultVideoId={localStorage.getItem("earthquakeYoutubeVideoId") || "xDRWMU9JzKA"}
+          onClose={() => setShowYoutubePlayer(false)}
+        />
+      )}
     </div>
   )
 }
