@@ -61,7 +61,7 @@ export interface Berm {
 }
 
 // Define the custom seismometer type for export
-export interface CustomSeismometer extends Seismometer {}
+export interface CustomSeismometer extends Seismometer { }
 
 // Define the YouTube feed type
 interface YouTubeFeed {
@@ -227,7 +227,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const drawPolylineButton = document.querySelector(".leaflet-draw-draw-polyline")
         if (drawPolylineButton) {
-          ;(drawPolylineButton as HTMLElement).click()
+          ; (drawPolylineButton as HTMLElement).click()
         }
       }
     })
@@ -252,7 +252,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const drawPolygonButton = document.querySelector(".leaflet-draw-draw-polygon")
         if (drawPolygonButton) {
-          ;(drawPolygonButton as HTMLElement).click()
+          ; (drawPolygonButton as HTMLElement).click()
         }
       }
     })
@@ -276,7 +276,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       if (drawControlRef.current) {
         const editButton = document.querySelector(".leaflet-draw-edit-edit")
         if (editButton) {
-          ;(editButton as HTMLElement).click()
+          ; (editButton as HTMLElement).click()
         }
       }
     })
@@ -462,7 +462,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
       setTimeout(() => {
         const defaultDrawControl = document.querySelector(".leaflet-draw.leaflet-control")
         if (defaultDrawControl) {
-          ;(defaultDrawControl as HTMLElement).style.display = "none"
+          ; (defaultDrawControl as HTMLElement).style.display = "none"
         }
       }, 100)
 
@@ -950,6 +950,19 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
 
     // Add to custom fissures
     setCustomFissures([...customFissures, newFissure])
+
+    // Enable the new fissure automatically
+    const currentEnabled = JSON.parse(localStorage.getItem("earthquakeEnabledFissures") || "[]")
+    localStorage.setItem("earthquakeEnabledFissures", JSON.stringify([...currentEnabled, newFissure.id]))
+
+    // Dispatch event to update map immediately
+    const event = new CustomEvent("mapSettingsChanged", {
+      detail: {
+        showFissures: true,
+        enabledFissures: [...currentEnabled, newFissure.id]
+      }
+    })
+    window.dispatchEvent(event)
 
     // Show success notification
     const notification = document.createElement("div")
@@ -2441,7 +2454,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
               </div>
 
               <div>
-                <Label htmlFor="youtube-url">YouTube Video URL or ID</Label>
+                <Label htmlFor="youtube-url">YouTube Video URL or ID</label>
                 <Input
                   id="youtube-url"
                   value={customVideoId}

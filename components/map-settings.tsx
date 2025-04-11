@@ -18,117 +18,93 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
   const [enableZoneTransitions, setEnableZoneTransitions] = useLocalStorage("earthquakeEnableZoneTransitions", false)
   const [showHotspotButtons, setShowHotspotButtons] = useLocalStorage("earthquakeShowHotspotButtons", false)
   const [showSeismicStations, setShowSeismicStations] = useLocalStorage("earthquakeShowSeismicStations", false)
-  const [showGpsStations, setShowGpsStations] = useLocalStorage("earthquakeShowGpsStations", true) // Default to true
+  const [showGpsStations, setShowGpsStations] = useLocalStorage("earthquakeShowGpsStations", true)
   const [showSeismometers, setShowSeismometers] = useLocalStorage("earthquakeShowSeismometers", false)
   const [showLavaFlows, setShowLavaFlows] = useLocalStorage("earthquakeShowLavaFlows", false)
   const [showBerms, setShowBerms] = useLocalStorage("earthquakeShowBerms", false)
-  const [showFissures, setShowFissures] = useLocalStorage("earthquakeShowFissures", false)
+  const [showFissures, setShowFissures] = useLocalStorage("earthquakeShowFissures", true) // Default to true
   const [showEarthquakes, setShowEarthquakes] = useLocalStorage("earthquakeShowEarthquakes", true)
   const [enabledFissures, setEnabledFissures] = useLocalStorage<string[]>("earthquakeEnabledFissures", [])
 
-  // Local state to track changes before saving
-  const [localShowZoneHighlighting, setLocalShowZoneHighlighting] = useState(showZoneHighlighting)
-  const [localEnableZoneTransitions, setLocalEnableZoneTransitions] = useState(enableZoneTransitions)
-  const [localShowHotspotButtons, setLocalShowHotspotButtons] = useState(showHotspotButtons)
-  const [localShowSeismicStations, setLocalShowSeismicStations] = useState(showSeismicStations)
-  const [localShowGpsStations, setLocalShowGpsStations] = useState(showGpsStations)
-  const [localShowSeismometers, setLocalShowSeismometers] = useState(showSeismometers)
-  const [localShowLavaFlows, setLocalShowLavaFlows] = useState(showLavaFlows)
-  const [localShowBerms, setLocalShowBerms] = useState(showBerms)
-  const [localShowFissures, setLocalShowFissures] = useState(showFissures)
-  const [localEnabledFissures, setLocalEnabledFissures] = useState<string[]>(enabledFissures)
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false)
-
-  // Toggle a fissure on/off
-  const toggleFissure = (fissureId: string) => {
-    if (localEnabledFissures.includes(fissureId)) {
-      setLocalEnabledFissures(localEnabledFissures.filter((id) => id !== fissureId))
-    } else {
-      setLocalEnabledFissures([...localEnabledFissures, fissureId])
+  // Handle immediate toggle updates
+  const handleSettingChange = (setting: string, value: boolean) => {
+    // Update the appropriate state based on the setting
+    switch (setting) {
+      case "zoneHighlighting":
+        setShowZoneHighlighting(value)
+        break
+      case "zoneTransitions":
+        setEnableZoneTransitions(value)
+        break
+      case "hotspotButtons":
+        setShowHotspotButtons(value)
+        break
+      case "seismicStations":
+        setShowSeismicStations(value)
+        break
+      case "gpsStations":
+        setShowGpsStations(value)
+        break
+      case "seismometers":
+        setShowSeismometers(value)
+        break
+      case "lavaFlows":
+        setShowLavaFlows(value)
+        break
+      case "berms":
+        setShowBerms(value)
+        break
+      case "fissures":
+        setShowFissures(value)
+        break
+      case "earthquakes":
+        setShowEarthquakes(value)
+        break
     }
-  }
-
-  // Update the saveSettings function to ensure all settings are saved to localStorage before reload
-  const saveSettings = () => {
-    // Update the localStorage values directly
-    setShowZoneHighlighting(localShowZoneHighlighting)
-    setEnableZoneTransitions(localEnableZoneTransitions)
-    setShowHotspotButtons(localShowHotspotButtons)
-    setShowSeismicStations(localShowSeismicStations)
-    setShowGpsStations(localShowGpsStations)
-    setShowSeismometers(localShowSeismometers)
-    setShowLavaFlows(localShowLavaFlows)
-    setShowBerms(localShowBerms)
-    setShowFissures(localShowFissures)
-    setEnabledFissures(localEnabledFissures)
-
-    // Show success notification
-    const notification = document.createElement("div")
-    notification.style.position = "fixed"
-    notification.style.top = "20px"
-    notification.style.left = "50%"
-    notification.style.transform = "translateX(-50%)"
-    notification.style.backgroundColor = "rgba(0, 128, 0, 0.8)"
-    notification.style.color = "white"
-    notification.style.padding = "10px 20px"
-    notification.style.borderRadius = "4px"
-    notification.style.zIndex = "3000"
-    notification.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)"
-    notification.textContent = "Settings saved successfully!"
-
-    document.body.appendChild(notification)
-
-    // Remove notification after 3 seconds
-    setTimeout(() => {
-      if (document.body.contains(notification)) {
-        document.body.removeChild(notification)
-      }
-    }, 3000)
-
-    // Dispatch a custom event to notify the map component to update
-    const event = new CustomEvent("mapSettingsChanged", {
-      detail: {
-        showZoneHighlighting: localShowZoneHighlighting,
-        enableZoneTransitions: localEnableZoneTransitions,
-        showHotspotButtons: localShowHotspotButtons,
-        showSeismicStations: localShowSeismicStations,
-        showGpsStations: localShowGpsStations,
-        showSeismometers: localShowSeismometers,
-        showLavaFlows: localShowLavaFlows,
-        showBerms: localShowBerms,
-        showFissures: localShowFissures,
-        enabledFissures: localEnabledFissures,
-      },
-    })
-    window.dispatchEvent(event)
-
-    // Close the settings panel after saving
-    onClose()
-  }
-
-  // Add a new function to handle immediate toggle of GPS stations
-  const handleGpsStationsToggle = (checked: boolean) => {
-    // Update local state
-    setLocalShowGpsStations(checked)
-
-    // Update localStorage directly
-    setShowGpsStations(checked)
 
     // Dispatch event to update map immediately
     const event = new CustomEvent("mapSettingsChanged", {
       detail: {
-        showGpsStations: checked,
-        // Include other current settings to avoid overriding them
-        showZoneHighlighting: localShowZoneHighlighting,
-        enableZoneTransitions: localEnableZoneTransitions,
-        showHotspotButtons: localShowHotspotButtons,
-        showSeismicStations: localShowSeismicStations,
-        showSeismometers: localShowSeismometers,
-        showLavaFlows: localShowLavaFlows,
-        showBerms: localShowBerms,
-        showFissures: localShowFissures,
-        enabledFissures: localEnabledFissures,
-      },
+        showZoneHighlighting,
+        enableZoneTransitions,
+        showHotspotButtons,
+        showSeismicStations,
+        showGpsStations,
+        showSeismometers,
+        showLavaFlows,
+        showBerms,
+        showFissures,
+        showEarthquakes,
+        enabledFissures,
+        [setting]: value
+      }
+    })
+    window.dispatchEvent(event)
+  }
+
+  // Toggle a fissure on/off with immediate update
+  const toggleFissure = (fissureId: string) => {
+    const newEnabledFissures = enabledFissures.includes(fissureId)
+      ? enabledFissures.filter(id => id !== fissureId)
+      : [...enabledFissures, fissureId]
+
+    setEnabledFissures(newEnabledFissures)
+
+    // Dispatch event to update map immediately
+    const event = new CustomEvent("mapSettingsChanged", {
+      detail: {
+        showZoneHighlighting,
+        enableZoneTransitions,
+        showHotspotButtons,
+        showSeismicStations,
+        showGpsStations,
+        showSeismometers,
+        showLavaFlows,
+        showBerms,
+        showFissures,
+        showEarthquakes,
+        enabledFissures: newEnabledFissures
+      }
     })
     window.dispatchEvent(event)
   }
@@ -144,19 +120,6 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
 
       <div className="p-4 overflow-y-auto max-h-[calc(90vh-60px)]">
         <div className="space-y-6">
-          {/* Earthquakes Settings */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Earthquakes</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-earthquakes" className="cursor-pointer">
-                  Show Earthquakes
-                </Label>
-                <Switch id="show-earthquakes" checked={showEarthquakes} onCheckedChange={setShowEarthquakes} />
-              </div>
-            </div>
-          </div>
-
           {/* Map Display Settings */}
           <div>
             <h3 className="text-lg font-semibold mb-3">Map Display</h3>
@@ -167,8 +130,8 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
                 </Label>
                 <Switch
                   id="zone-highlighting"
-                  checked={localShowZoneHighlighting}
-                  onCheckedChange={setLocalShowZoneHighlighting}
+                  checked={showZoneHighlighting}
+                  onCheckedChange={(value) => handleSettingChange("zoneHighlighting", value)}
                 />
               </div>
 
@@ -178,8 +141,8 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
                 </Label>
                 <Switch
                   id="zone-transitions"
-                  checked={localEnableZoneTransitions}
-                  onCheckedChange={setLocalEnableZoneTransitions}
+                  checked={enableZoneTransitions}
+                  onCheckedChange={(value) => handleSettingChange("zoneTransitions", value)}
                 />
               </div>
 
@@ -189,8 +152,8 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
                 </Label>
                 <Switch
                   id="hotspot-buttons"
-                  checked={localShowHotspotButtons}
-                  onCheckedChange={setLocalShowHotspotButtons}
+                  checked={showHotspotButtons}
+                  onCheckedChange={(value) => handleSettingChange("hotspotButtons", value)}
                 />
               </div>
             </div>
@@ -201,13 +164,24 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
             <h3 className="text-lg font-semibold mb-3">Stations & Features</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
+                <Label htmlFor="earthquakes" className="cursor-pointer">
+                  Show Earthquakes
+                </Label>
+                <Switch
+                  id="earthquakes"
+                  checked={showEarthquakes}
+                  onCheckedChange={(value) => handleSettingChange("earthquakes", value)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
                 <Label htmlFor="seismic-stations" className="cursor-pointer">
                   Show Seismic Stations
                 </Label>
                 <Switch
                   id="seismic-stations"
-                  checked={localShowSeismicStations}
-                  onCheckedChange={setLocalShowSeismicStations}
+                  checked={showSeismicStations}
+                  onCheckedChange={(value) => handleSettingChange("seismicStations", value)}
                 />
               </div>
 
@@ -215,28 +189,44 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
                 <Label htmlFor="gps-stations" className="cursor-pointer">
                   Show GPS Stations
                 </Label>
-                <Switch id="gps-stations" checked={localShowGpsStations} onCheckedChange={handleGpsStationsToggle} />
+                <Switch
+                  id="gps-stations"
+                  checked={showGpsStations}
+                  onCheckedChange={(value) => handleSettingChange("gpsStations", value)}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="seismometers" className="cursor-pointer">
                   Show Seismometers
                 </Label>
-                <Switch id="seismometers" checked={localShowSeismometers} onCheckedChange={setLocalShowSeismometers} />
+                <Switch
+                  id="seismometers"
+                  checked={showSeismometers}
+                  onCheckedChange={(value) => handleSettingChange("seismometers", value)}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="lava-flows" className="cursor-pointer">
                   Show Lava Flows
                 </Label>
-                <Switch id="lava-flows" checked={localShowLavaFlows} onCheckedChange={setLocalShowLavaFlows} />
+                <Switch
+                  id="lava-flows"
+                  checked={showLavaFlows}
+                  onCheckedChange={(value) => handleSettingChange("lavaFlows", value)}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="berms" className="cursor-pointer">
                   Show Berms
                 </Label>
-                <Switch id="berms" checked={localShowBerms} onCheckedChange={setLocalShowBerms} />
+                <Switch
+                  id="berms"
+                  checked={showBerms}
+                  onCheckedChange={(value) => handleSettingChange("berms", value)}
+                />
               </div>
             </div>
           </div>
@@ -245,12 +235,16 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Eruption Fissures</h3>
-              <Switch id="show-fissures" checked={localShowFissures} onCheckedChange={setLocalShowFissures} />
+              <Switch
+                id="show-fissures"
+                checked={showFissures}
+                onCheckedChange={(value) => handleSettingChange("fissures", value)}
+              />
             </div>
 
-            {localShowFissures && (
+            {showFissures && (
               <div className="space-y-2 pl-2 border-l-2 border-gray-700">
-                {VOLCANIC_FISSURES.map((fissure) => (
+                {[...VOLCANIC_FISSURES].map((fissure) => (
                   <div key={fissure.id} className="flex items-center justify-between">
                     <Label htmlFor={`fissure-${fissure.id}`} className="cursor-pointer flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: fissure.color }}></div>
@@ -258,7 +252,7 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
                     </Label>
                     <Switch
                       id={`fissure-${fissure.id}`}
-                      checked={localEnabledFissures.includes(fissure.id)}
+                      checked={enabledFissures.includes(fissure.id)}
                       onCheckedChange={() => toggleFissure(fissure.id)}
                     />
                   </div>
@@ -266,23 +260,7 @@ export default function MapSettings({ onClose }: MapSettingsProps) {
               </div>
             )}
           </div>
-
-          {/* Save Button */}
-          <Button onClick={saveSettings} className="w-full bg-green-600 hover:bg-green-700 mt-4">
-            Save Choices
-          </Button>
         </div>
-      </div>
-
-      <div className="fixed bottom-4 left-4 space-x-2 z-[1000]">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setShowNotificationSettings(true)}
-          className="bg-gray-900/90 border-gray-700 hover:bg-gray-800"
-        >
-          <Bell className="h-[1.2rem] w-[1.2rem]" />
-        </Button>
       </div>
     </div>
   )
