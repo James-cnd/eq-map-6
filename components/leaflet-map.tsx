@@ -193,6 +193,9 @@ export default function LeafletMap({
   const [lavaFlows] = useLocalStorage<LavaFlow[]>("earthquakeLavaFlows", [])
   const [berms] = useLocalStorage<Berm[]>("earthquakeBerms", [])
 
+  // Add custom fissures from localStorage
+  const [customFissures] = useLocalStorage<Fissure[]>("earthquakeCustomFissures", [])
+
   // Flag to prevent circular updates
   const isUserInteraction = useRef(true)
 
@@ -986,7 +989,10 @@ export default function LeafletMap({
           map.getPane("fissuresPane").style.zIndex = "900" // Very high z-index, but below newest earthquake
         }
 
-        VOLCANIC_FISSURES.forEach((fissure) => {
+        // Combine VOLCANIC_FISSURES and customFissures
+        const allFissures = [...VOLCANIC_FISSURES, ...customFissures]
+
+        allFissures.forEach((fissure) => {
           if (enabledFissures.includes(fissure.id)) {
             fissure.coordinates.forEach((lineCoords) => {
               try {
@@ -1053,7 +1059,7 @@ export default function LeafletMap({
         console.error("Error creating fissures pane:", error)
       }
     }
-  }, [leaflet, enabledFissures, showFissures, isMapReady])
+  }, [leaflet, enabledFissures, showFissures, isMapReady, customFissures])
 
   // Add custom seismometer markers
   useEffect(() => {
@@ -1367,94 +1373,94 @@ export default function LeafletMap({
         showLavaFlows ||
         showBerms ||
         showEarthquakes) && (
-        <div className="absolute bottom-20 right-4 z-20 bg-gray-900/80 p-2 rounded shadow-md text-white text-xs">
-          <div className="font-bold mb-1">Map Legend</div>
-          {showEarthquakes && (
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-3 h-3 rounded-full bg-red-500 border border-white"></div>
-              <span>Earthquakes</span>
-            </div>
-          )}
-          {showSeismicStations && (
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-3 h-3 rounded-full bg-red-500 border border-white"></div>
-              <span>Seismic Station</span>
-            </div>
-          )}
-          {showGpsStations && (
-            <div className="flex items-center gap-1 mb-1">
-              <div
-                style={{
-                  width: "10px",
-                  height: "10px",
-                  backgroundColor: "pink",
-                  transform: "rotate(45deg)",
-                  opacity: 0.5,
-                }}
-              ></div>
-              <span>GPS Station</span>
-            </div>
-          )}
-          {showSeismometers && customSeismometers.length > 0 && (
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-2 h-2 rounded-full bg-purple-700 border border-white opacity-70"></div>
-              <span>Seismometer</span>
-            </div>
-          )}
-          {showLavaFlows && lavaFlows.length > 0 && (
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-3 h-3 rounded-full bg-orange-500 border border-white opacity-70"></div>
-              <span>Lava Flow</span>
-            </div>
-          )}
-          {showBerms && berms.length > 0 && (
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-3 h-3 rounded-full bg-green-500 border border-white opacity-70"></div>
-              <span>Berm</span>
-            </div>
-          )}
-          {enabledFissures.length > 0 && showFissures && (
-            <>
-              <div className="font-bold mt-2 mb-1">Eruption Fissures</div>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#0066CC" }}></div>
-
-                  <span>Dec 2023</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#66CCFF" }}></div>
-                  <span>Jan 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#00CC66" }}></div>
-                  <span>Feb 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#FF9900" }}></div>
-                  <span>Mar 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#FF0000" }}></div>
-                  <span>May 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#9933CC" }}></div>
-                  <span>Aug 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-1" style={{ backgroundColor: "#FFCC00" }}></div>
-                  <span>Nov 2024</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-yellow-300">★</span>
-                  <span>Initial opening</span>
-                </div>
+          <div className="absolute bottom-20 right-4 z-20 bg-gray-900/80 p-2 rounded shadow-md text-white text-xs">
+            <div className="font-bold mb-1">Map Legend</div>
+            {showEarthquakes && (
+              <div className="flex items-center gap-1 mb-1">
+                <div className="w-3 h-3 rounded-full bg-red-500 border border-white"></div>
+                <span>Earthquakes</span>
               </div>
-            </>
-          )}
-        </div>
-      )}
+            )}
+            {showSeismicStations && (
+              <div className="flex items-center gap-1 mb-1">
+                <div className="w-3 h-3 rounded-full bg-red-500 border border-white"></div>
+                <span>Seismic Station</span>
+              </div>
+            )}
+            {showGpsStations && (
+              <div className="flex items-center gap-1 mb-1">
+                <div
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    backgroundColor: "pink",
+                    transform: "rotate(45deg)",
+                    opacity: 0.5,
+                  }}
+                ></div>
+                <span>GPS Station</span>
+              </div>
+            )}
+            {showSeismometers && customSeismometers.length > 0 && (
+              <div className="flex items-center gap-1 mb-1">
+                <div className="w-2 h-2 rounded-full bg-purple-700 border border-white opacity-70"></div>
+                <span>Seismometer</span>
+              </div>
+            )}
+            {showLavaFlows && lavaFlows.length > 0 && (
+              <div className="flex items-center gap-1 mb-1">
+                <div className="w-3 h-3 rounded-full bg-orange-500 border border-white opacity-70"></div>
+                <span>Lava Flow</span>
+              </div>
+            )}
+            {showBerms && berms.length > 0 && (
+              <div className="flex items-center gap-1 mb-1">
+                <div className="w-3 h-3 rounded-full bg-green-500 border border-white opacity-70"></div>
+                <span>Berm</span>
+              </div>
+            )}
+            {enabledFissures.length > 0 && showFissures && (
+              <>
+                <div className="font-bold mt-2 mb-1">Eruption Fissures</div>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#0066CC" }}></div>
+
+                    <span>Dec 2023</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#66CCFF" }}></div>
+                    <span>Jan 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#00CC66" }}></div>
+                    <span>Feb 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#FF9900" }}></div>
+                    <span>Mar 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#FF0000" }}></div>
+                    <span>May 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#9933CC" }}></div>
+                    <span>Aug 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-1" style={{ backgroundColor: "#FFCC00" }}></div>
+                    <span>Nov 2024</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-yellow-300">★</span>
+                    <span>Initial opening</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
     </div>
   )
 }
