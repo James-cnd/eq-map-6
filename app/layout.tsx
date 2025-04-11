@@ -14,7 +14,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <div className="fixed bottom-4 left-4 space-x-2 z-[1000]">
+          <OverlaySettingsButton />
+          <NotificationSettingsButton /> {/* Your existing notification button */}
+        </div>
+      </body>
     </html>
   )
 }
