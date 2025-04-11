@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, ChangeEvent } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,11 +14,15 @@ import type { LavaFlow as LavaFlowType } from "@/types/lava-flow"
 import type { Berm as BermType } from "@/types/berm"
 import { GPS_STATIONS as OFFICIAL_GPS_STATIONS } from "@/data/gps-stations"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-// First, import the extended GPS stations
-// Add this import near the top of the file, after the other imports
 import { EXTENDED_GPS_STATIONS } from "@/data/gps-stations-extended"
-// Add this import at the top of the file
 import AdminDashboard from "@/components/admin-dashboard"
+
+// Declare window.L type
+declare global {
+  interface Window {
+    L: any;
+  }
+}
 
 interface AdminDrawPanelProps {
   onClose: () => void
@@ -1532,16 +1536,6 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
   return (
     <div className="w-full h-full overflow-auto">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Find the TabsList section and add a new tab for the dashboard
-        Look for this code: */}
-        {/* <TabsList className="grid grid-cols-6 mb-4">
-          <TabsTrigger value="fissures">Fissures</TabsTrigger>
-          <TabsTrigger value="lavaFlows">Lava Flows</TabsTrigger>
-          <TabsTrigger value="berms">Berms</TabsTrigger>
-          <TabsTrigger value="gps">GPS</TabsTrigger>
-          <TabsTrigger value="seismometers">Seismometers</TabsTrigger>
-          <TabsTrigger value="youtube">Live Feed</TabsTrigger>
-        </TabsList> */}
         <TabsList className="grid grid-cols-7 mb-4">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="fissures">Fissures</TabsTrigger>
@@ -1551,8 +1545,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
           <TabsTrigger value="seismometers">Seismometers</TabsTrigger>
           <TabsTrigger value="youtube">Live Feed</TabsTrigger>
         </TabsList>
-        {/* Then add the new TabsContent for the dashboard
-        Add this after the TabsList: */}
+
         {/* Dashboard Tab */}
         <TabsContent value="dashboard">
           <AdminDashboard />
@@ -2454,7 +2447,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
               </div>
 
               <div>
-                <Label htmlFor="youtube-url">YouTube Video URL or ID</label>
+                <Label htmlFor="youtube-url">YouTube Video URL or ID</Label>
                 <Input
                   id="youtube-url"
                   value={customVideoId}
