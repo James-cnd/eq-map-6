@@ -451,3 +451,21 @@ Add these styles to ensure the drawing tools are properly positioned and visible
 .leaflet-control-attribution {
   display: none !important;
 }
+
+.sidebar {
+  margin-top: 50px;
+  border-radius: 15px 0 0 0;
+  ;
+}
+
+.sidebar-toggle {
+  border-radius: 5px;
+  height: 32px;
+  width: 32px;
+  margin-left: 5px;
+}
+
+.sidebar-icon {
+  width: 20px;
+  height: 20px;
+}

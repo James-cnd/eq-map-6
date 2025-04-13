@@ -1,26 +1,39 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useEarthquakes } from "@/hooks/use-earthquakes"
-import { useEarthquakeNotifications } from "@/hooks/use-earthquake-notifications"
-import { EarthquakeDetails } from "@/components/earthquake-details"
-import type { Earthquake } from "@/types/earthquake"
-import { ICELAND_ZONES } from "@/types/zones"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Settings, Globe, BookOpen, Activity, Coffee, Pencil, Bell, Youtube, Layers } from "lucide-react"
-import { useLocalStorage } from "@/hooks/use-local-storage"
-import EarthquakeSidebar from "@/components/earthquake-sidebar"
 import dynamic from "next/dynamic"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { DraggablePanel } from "@/components/draggable-panel"
+
+import { useEarthquakes } from "@/hooks/use-earthquakes"
+import { useEarthquakeNotifications } from "@/hooks/use-earthquake-notifications"
+import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useMapLayers } from "@/hooks/use-map-layers"
-import { useRouter } from "next/navigation"
 
-// Replace static imports with dynamic imports for heavy components
+import { EarthquakeDetails } from "@/components/earthquake-details"
+import EarthquakeSidebar from "@/components/earthquake-sidebar"
+import MapSettings from "@/components/map-settings"
+import WelcomeMessage from "@/components/welcome-message"
 
-// Dynamically import heavy components
+import { VolcanoIcon } from "@/components/icons/volcano-icon"
+import {
+  Activity,
+  Bell,
+  Layers,
+  Settings,
+  Info,
+  Youtube,
+  Coffee,
+  BookOpen,
+  Globe,
+  Pencil,
+  AlertCircle,
+  X
+} from "lucide-react"
+
 const FactsPanel = dynamic(() => import("@/components/facts-panel"), {
   ssr: false,
   loading: () => <div className="p-4 bg-gray-900 text-white">Loading facts...</div>,
@@ -46,50 +59,42 @@ const YoutubePlayer = dynamic(() => import("@/components/youtube-player"), {
   loading: () => <div className="p-4 bg-gray-900 text-white">Loading YouTube player...</div>,
 })
 
-// The AdminDrawPanel is already dynamically imported
-import NotificationSettings from "@/components/notification-settings"
-import SeismometerDisplay from "@/components/seismometer-display"
+const NotificationSettings = dynamic(() => import("@/components/notification-settings"), {
+  ssr: false,
+})
 
-import type { CustomSeismometer } from "@/components/admin-draw-panel"
+const SeismometerDisplay = dynamic(() => import("@/components/seismometer-display"), {
+  ssr: false,
+})
 
-// Add the import for the volcano icon
-import { VolcanoIcon } from "@/components/icons/volcano-icon"
-
-// Import Leaflet CSS
-import "leaflet/dist/leaflet.css"
-// We'll load Leaflet.Draw CSS dynamically in the AdminDrawPanel component
-
-// Import the AdminDrawPanel component
 const AdminDrawPanel = dynamic(() => import("@/components/admin-draw-panel"), {
   ssr: false,
 })
 
-// Dynamically import Leaflet with no SSR to avoid window is not defined errors
-// Use a key to force remount when needed
 const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
   ssr: false,
   loading: () => <Skeleton className="h-full w-full bg-gray-800" />,
 })
 
-// Add this import at the top of the file
-import WelcomeMessage from "@/components/welcome-message"
+import type { Earthquake } from "@/types/earthquake"
+import type { CustomSeismometer } from "@/components/admin-draw-panel"
+import { ICELAND_ZONES } from "@/types/zones"
 
-// Add import after other imports
-import MapSettings from "@/components/map-settings"
-
-// Make sure the component is exported as default
 export default function EarthquakeMap() {
-  const router = useRouter()
+  const { earthquakes, isLoading, error, lastUpdated } = useEarthquakes()
+
+  // Selected quake & seismometer states
   const [selectedEarthquake, setSelectedEarthquake] = useState<Earthquake | null>(null)
+  const [selectedSeismometer, setSelectedSeismometer] = useState<CustomSeismometer | null>(null)
+
+  // Ranges & filters
   const [magnitudeRange, setMagnitudeRange] = useLocalStorage<[number, number]>("earthquakeMagnitudeRange", [-2, 8])
   const [depthRange, setDepthRange] = useLocalStorage<[number, number]>("earthquakeDepthRange", [0, 25])
   const [timeFilterRange, setTimeFilterRange] = useLocalStorage<[number, number]>("earthquakeTimeFilterRange", [0, 24])
   const [zoneFilter, setZoneFilter] = useLocalStorage("earthquakeZoneFilter", "all")
-  const { earthquakes, isLoading, error, lastUpdated } = useEarthquakes()
-  const [selectedSeismometer, setSelectedSeismometer] = useState<CustomSeismometer | null>(null)
-  const [mapKey, setMapKey] = useState(0)
+  const [selectedZone, setSelectedZone] = useState("all")
 
-  // Use our map layers hook for all layer visibility states
+  // Map layers
   const {
     showSeismicStations,
     showGpsStations,
@@ -99,12 +104,11 @@ export default function EarthquakeMap() {
     showEarthquakes
   } = useMapLayers()
 
-  // Use localStorage to remember panel visibility preferences
+  // Local storage for sidebar & panel states
   const [showSidebar, setShowSidebar] = useLocalStorage("earthquakeShowSidebar", true)
-  // Default to "list" panel always
   const [activePanel, setActivePanel] = useLocalStorage<"settings" | "list" | null>("earthquakeActivePanel", "list")
 
-  // Add states for showing facts panel, eruption info, and donation info
+  // Additional toggles for modals
   const [showFactsPanel, setShowFactsPanel] = useState(false)
   const [showEruptionInfo, setShowEruptionInfo] = useState(false)
   const [showDonationInfo, setShowDonationInfo] = useState(false)
@@ -114,10 +118,14 @@ export default function EarthquakeMap() {
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
   const [showMapSettings, setShowMapSettings] = useState(false)
 
-  // Refs for Leaflet map and L
+  // “Welcome message” version checking
+  const [showWelcomeMessage, setShowWelcomeMessage] = useLocalStorage("earthquakeWelcomeMessageSeen", true)
+  const [welcomeMessageVersion, setWelcomeMessageVersion] = useLocalStorage("earthquakeWelcomeMessageVersion", 0)
+
+  // Map reference
   const leafletMapRef = useRef<{ map: any; L: any } | null>(null)
 
-  // Initialize earthquake notifications
+  // Earthquake notifications
   const {
     notificationsEnabled,
     setNotificationsEnabled,
@@ -129,26 +137,69 @@ export default function EarthquakeMap() {
     setMlwNotificationsEnabled,
   } = useEarthquakeNotifications(earthquakes)
 
-  // Check if data is stale (not updated in the last 15 seconds)
-  const isDataStale = lastUpdated && Date.now() - lastUpdated > 15000
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
-  // Filter earthquakes based on magnitude range, time range, depth range, and zone
+  // Remount map on resize (debounced)
+  useEffect(() => {
+    const handleResize = () => { /* your logic if needed */ }
+    let resizeTimer: NodeJS.Timeout
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(handleResize, 500)
+    })
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      clearTimeout(resizeTimer)
+    }
+  }, [])
+
+  // Global settings changes
+  useEffect(() => {
+    const handleGlobalSettingsChanged = (event: CustomEvent) => {
+      if (event.detail.notificationThreshold) {
+        localStorage.setItem("earthquakeHighActivityThreshold", event.detail.notificationThreshold.toString())
+      }
+    }
+    window.addEventListener("globalSettingsChanged", handleGlobalSettingsChanged as EventListener)
+    return () => {
+      window.removeEventListener("globalSettingsChanged", handleGlobalSettingsChanged as EventListener)
+    }
+  }, [])
+
+  // Listen for welcome message changes
+  useEffect(() => {
+    const storedMessage = localStorage.getItem("earthquakeWelcomeMessage")
+    if (storedMessage) {
+      try {
+        const parsed = JSON.parse(storedMessage)
+        if (parsed.version > welcomeMessageVersion) {
+          setShowWelcomeMessage(true)
+          setWelcomeMessageVersion(parsed.version)
+        }
+      } catch (e) {
+        console.error("Error parsing welcome message:", e)
+      }
+    }
+  }, [welcomeMessageVersion, setWelcomeMessageVersion, setShowWelcomeMessage])
+
+  // Filter quake data
   const filteredEarthquakes = earthquakes.filter((quake) => {
-    // Apply magnitude range filter
     if (quake.size < magnitudeRange[0] || quake.size > magnitudeRange[1]) return false
-
-    // Apply depth range filter
     if (quake.depth < depthRange[0] || quake.depth > depthRange[1]) return false
 
-    // Apply time range filter
     const quakeTime = new Date(quake.timestamp).getTime()
     const now = Date.now()
-    const olderCutoff = now - timeFilterRange[1] * 60 * 60 * 1000 // Convert hours to milliseconds
-    const newerCutoff = now - timeFilterRange[0] * 60 * 60 * 1000 // Convert hours to milliseconds
-
+    const olderCutoff = now - timeFilterRange[1] * 60 * 60 * 1000
+    const newerCutoff = now - timeFilterRange[0] * 60 * 60 * 1000
     if (quakeTime < olderCutoff || quakeTime > newerCutoff) return false
 
-    // Apply zone filter
     if (zoneFilter !== "all") {
       const zone = ICELAND_ZONES.find((z) => z.id === zoneFilter)
       if (zone) {
@@ -163,119 +214,29 @@ export default function EarthquakeMap() {
         }
       }
     }
-
     return true
   })
 
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setShowSidebar(!showSidebar)
-  }
-
-  // Toggle between panels or close if already active
-  const togglePanel = (panel: "settings" | "list") => {
-    setActivePanel(panel)
-    setShowSidebar(true)
-  }
-
-  // Add this function to handle seismometer selection:
-  const handleSelectSeismometer = (seismometer: CustomSeismometer) => {
-    setSelectedSeismometer(seismometer)
-  }
-
-  // Detect mobile view
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    // Check on mount
-    checkMobile()
-
-    // Add resize listener
-    window.addEventListener("resize", checkMobile)
-
-    // Clean up
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
-
-  // Force remount of map component when window is resized
-  useEffect(() => {
-    const handleResize = () => { }
-
-    // Add resize listener with debounce
-    let resizeTimer: NodeJS.Timeout
-    window.addEventListener("resize", () => {
-      clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(handleResize, 500)
-    })
-
-    return () => {
-      window.removeEventListener("resize", handleResize)
-      clearTimeout(resizeTimer)
-    }
-  }, [])
-
-  // Handle map reference from LeafletMap component
+  // Map reference setter
   const handleMapReference = (map: any, L: any) => {
     leafletMapRef.current = { map, L }
   }
 
-  // Add this state inside the component
-  const [showWelcomeMessage, setShowWelcomeMessage] = useLocalStorage("earthquakeWelcomeMessageSeen", true)
-  const [welcomeMessageVersion, setWelcomeMessageVersion] = useLocalStorage("earthquakeWelcomeMessageVersion", 0)
+  // Seismometer selection
+  const handleSelectSeismometer = (seismometer: CustomSeismometer) => {
+    setSelectedSeismometer(seismometer)
+  }
 
-  // Add this effect to check for welcome message updates
-  useEffect(() => {
-    // Check if the welcome message has been updated
-    const storedMessage = localStorage.getItem("earthquakeWelcomeMessage")
-    if (storedMessage) {
-      try {
-        const parsedMessage = JSON.parse(storedMessage)
-        if (parsedMessage.version > welcomeMessageVersion) {
-          // New version of welcome message, show it again
-          setShowWelcomeMessage(true)
-          setWelcomeMessageVersion(parsedMessage.version)
-        }
-      } catch (e) {
-        console.error("Error parsing welcome message:", e)
-      }
-    }
-  }, [setShowWelcomeMessage, welcomeMessageVersion, setWelcomeMessageVersion])
+  // Is data stale?
+  const isDataStale = lastUpdated && Date.now() - lastUpdated > 15000
 
-  // Add this effect to listen for global settings changes
-  useEffect(() => {
-    const handleGlobalSettingsChanged = (event: CustomEvent) => {
-      // Update application settings based on global changes
-      console.log("Global settings changed:", event.detail)
+  // Helper to style top-right icons
+  const topRightButtonClasses = (isActive: boolean) =>
+    isActive
+      ? "bg-white text-black shadow-md hover:bg-white"
+      : "bg-slate-900 text-white shadow-md hover:bg-slate-800"
 
-      // Force refresh data or update UI as needed
-      // This could trigger a refresh of earthquake data, update notification thresholds, etc.
-
-      // For example, to update the notification threshold:
-      if (event.detail.notificationThreshold) {
-        // Update the local notification threshold
-        localStorage.setItem("earthquakeHighActivityThreshold", event.detail.notificationThreshold.toString())
-      }
-
-      // To update the refresh interval:
-      if (event.detail.refreshInterval) {
-        // This would require a restart of the polling mechanism
-        // You could dispatch another event that the useEarthquakes hook listens for
-      }
-    }
-
-    window.addEventListener("globalSettingsChanged", handleGlobalSettingsChanged as EventListener)
-
-    return () => {
-      window.removeEventListener("globalSettingsChanged", handleGlobalSettingsChanged as EventListener)
-    }
-  }, [])
-
-  // Declare selectedZone with a default value (e.g., "all")
-  const [selectedZone, setSelectedZone] = useState("all")
+  // --------------- LAYOUT ---------------
 
   if (isLoading) {
     return (
@@ -286,247 +247,228 @@ export default function EarthquakeMap() {
   }
 
   return (
-    <div className="relative h-full w-full">
-      {/* Map takes full screen */}
-      <div className="h-full w-full">
-        <LeafletMap
-          key={mapKey}
-          earthquakes={filteredEarthquakes}
-          onSelectEarthquake={setSelectedEarthquake}
-          selectedEarthquake={selectedEarthquake}
-          selectedZone={ICELAND_ZONES.find((z) => z.id === selectedZone)}
-          showSeismicStations={showSeismicStations}
-          showGpsStations={showGpsStations}
-          showSeismometers={showSeismometers}
-          showLavaFlows={showLavaFlows}
-          showBerms={showBerms}
-          showEarthquakes={showEarthquakes}
-          onMapReference={handleMapReference}
-          onSelectSeismometer={handleSelectSeismometer}
-        />
-      </div>
+    <div className="relative h-screen w-screen overflow-hidden bg-gray-900 text-white">
+      {/* MAP */}
+      <LeafletMap
+        key={Date.now()}
+        earthquakes={filteredEarthquakes}
+        onSelectEarthquake={setSelectedEarthquake}
+        selectedEarthquake={selectedEarthquake}
+        selectedZone={ICELAND_ZONES.find((z) => z.id === selectedZone)}
+        showSeismicStations={showSeismicStations}
+        showGpsStations={showGpsStations}
+        showSeismometers={showSeismometers}
+        showLavaFlows={showLavaFlows}
+        showBerms={showBerms}
+        showEarthquakes={showEarthquakes}
+        onMapReference={handleMapReference}
+        onSelectSeismometer={handleSelectSeismometer}
+      />
 
-      {/* Fixed error notification bar at the top */}
+      {/* ERROR bar if stale or error */}
       {(error || isDataStale) && (
-        <div className="fixed top-4 left-0 right-0 z-[1001] flex justify-center">
-          <Alert variant="destructive" className="bg-red-500/90 text-white border-none max-w-md shadow-lg">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[1001]">
+          <Alert variant="destructive" className="bg-red-500/90 text-white border-none shadow-lg">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error ? `Error: ${error.message}` : "Site not currently updating"}</AlertDescription>
+            <AlertDescription>
+              {error ? `Error: ${error.message}` : "Site not currently updating"}
+            </AlertDescription>
           </Alert>
         </div>
       )}
 
-      {/* App title overlay */}
-      <div className="fixed top-4 left-4 z-[1001] bg-gray-900/80 text-white p-2 rounded-lg shadow-lg">
-        <h1 className="text-lg font-bold">Icelandic Earthquake Monitor</h1>
+      {/* TOP-LEFT: Gosvörður button */}
+      <div className="absolute top-4 left-4 z-[1001]">
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-full shadow hover:bg-slate-800 cursor-pointer">
+          <VolcanoIcon className="sidebar-icon h-5 w-5" />
+          <span className="font-semibold">Gosvörður</span>
+        </div>
       </div>
 
-      {/* Admin button - positioned in the top right */}
-      <div className="fixed top-4 right-4 z-[1001] flex gap-2">
-        {/* Notification button removed from here */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white flex items-center gap-1"
-          onClick={() => router.push('/admin')}
-        >
-          <Pencil className="h-4 w-4" />
-          <span>Admin</span>
-        </Button>
-      </div>
-
-      {/* Raspberry Shake button - positioned in the bottom left */}
-      <div className="fixed bottom-24 left-4 z-[1001] flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white flex items-center gap-1"
-          onClick={() => setShowRaspberryShakeInfo(true)}
-        >
-          <Activity className="h-4 w-4" />
-          <span>Seismograms</span>
-        </Button>
-      </div>
-
-      {/* Buy Me A Coffee button - positioned in the bottom left, above where earthquake details would appear */}
-      <div className="fixed bottom-16 left-4 z-[1001]">
-        <Button
-          variant="outline"
-          size="sm"
-          className="bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white flex items-center gap-1"
-          onClick={() => setShowDonationInfo(true)}
-        >
-          <Coffee className="h-4 w-4" />
-          <span>Support</span>
-        </Button>
-      </div>
-
-      {/* Control buttons - with updated icons */}
-      <div className="fixed bottom-4 left-4 z-[1001] flex gap-2">
-        {/* Map Settings button */}
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showMapSettings ? "ring-2 ring-white" : ""}`}
-          onClick={() => setShowMapSettings(true)}
-          title="Map Layer Settings"
-          aria-label="Map Layer Settings"
-        >
-          <Layers className="h-5 w-5" />
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showSidebar && activePanel === "list" ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => togglePanel("list")}
+      {/* TOP-RIGHT: toggles for side panel + admin, with custom dark vs. white logic */}
+      <div className="absolute top-4 right-4 z-[1001] flex gap-2">
+        {/* Quakes => sets activePanel='list' & showSidebar=true */}
+        <button
+          className={`rounded-full sidebar-toggle p-2 ${topRightButtonClasses(activePanel === "list" && showSidebar)}`}
+          onClick={() => {
+            setActivePanel("list")
+            setShowSidebar(true)
+          }}
           title="Recent Earthquakes"
-          aria-label="Recent Earthquakes"
         >
-          <Activity className="h-5 w-5" />
-        </Button>
+          <Activity className="sidebar-icon h-5 w-5" />
+        </button>
 
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showSidebar && activePanel === "settings" ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => togglePanel("settings")}
+        {/* Filter => sets activePanel='settings' & showSidebar=true */}
+        <button
+          className={`rounded-full sidebar-toggle p-2 ${topRightButtonClasses(activePanel === "settings" && showSidebar)}`}
+          onClick={() => {
+            setActivePanel("settings")
+            setShowSidebar(true)
+          }}
           title="Filter Settings"
-          aria-label="Filter Settings"
         >
-          <Settings className="h-5 w-5" />
-        </Button>
+          <Settings className="sidebar-icon h-5 w-5" />
+        </button>
 
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showEruptionInfo ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => setShowEruptionInfo(!showEruptionInfo)}
-          title="Eruption Information"
-          aria-label="Eruption Information"
+        {/* Layers => open map settings modal */}
+        <button
+          className={`rounded-full sidebar-toggle p-2 ${topRightButtonClasses(showMapSettings)}`}
+          onClick={() => setShowMapSettings(true)}
+          title="Map Layers"
         >
-          <VolcanoIcon className="h-5 w-5" />
-        </Button>
+          <Layers className="sidebar-icon h-5 w-5" />
+        </button>
 
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showYoutubePlayer ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => setShowYoutubePlayer(!showYoutubePlayer)}
-          title="Live Feed"
-          aria-label="Live Feed"
-        >
-          <Youtube className="h-5 w-5" />
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showFactsPanel ? "ring-2 ring-white" : ""
-            }`}
-          onClick={() => setShowFactsPanel(!showFactsPanel)}
-          title="Earthquake Facts"
-          aria-label="Earthquake Facts"
-        >
-          <BookOpen className="h-5 w-5" />
-        </Button>
-
-        {/* Notification button added here */}
-        <Button
-          variant="outline"
-          size="icon"
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${showNotificationSettings ? "ring-2 ring-white" : ""
-            }`}
+        {/* Notifications => open notification settings */}
+        <button
+          className={`relative rounded-full sidebar-toggle p-2 ${topRightButtonClasses(showNotificationSettings)}`}
           onClick={() => setShowNotificationSettings(true)}
-          title="Notification Settings"
-          aria-label="Notification Settings"
+          title="Notifications"
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="sidebar-icon h-5 w-5" />
           {recentEarthquakeCount > highActivityThreshold && (
-            <span className="absolute -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3"></span>
+            <span className="absolute sidebar-toggle -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3" />
           )}
-        </Button>
+        </button>
+
+        {/* Admin => show admin panel in DraggablePanel */}
+        <button
+          className={`rounded-full sidebar-toggle p-2 ${topRightButtonClasses(showAdminPanel)}`}
+          onClick={() => setShowAdminPanel(true)}
+          title="Admin Panel"
+        >
+          <Pencil className="sidebar-icon h-5 w-5" />
+        </button>
       </div>
 
-      {/* Sidebar panel - always shown with list by default, replaced with settings when clicked */}
+      {/* RIGHT SIDEBAR (only if showSidebar = true) */}
       {showSidebar && (
         <div
-          className={`fixed z-[1002] bg-gray-900/95 border-gray-700 shadow-lg text-white transition-all duration-300 ease-in-out ${isMobile
-            ? "bottom-16 left-0 right-0 max-h-[70vh] rounded-t-xl border-t"
-            : "top-0 bottom-0 right-0 w-80 border-l"
-            }`}
-          style={{ pointerEvents: "auto" }}
+          className={`sidebar fixed top-0 bottom-0 right-0 w-80 z-[1002] bg-slate-950 border-l border-slate-700 shadow-lg text-white
+          transition-all duration-300 ease-in-out ${isMobile ? "max-h-[70vh] bottom-16" : ""}`}
         >
-          <div className="flex justify-between items-center p-3 border-b border-gray-700">
-            <h2 className="font-bold">{activePanel === "settings" ? "Settings" : "Recent Earthquakes"}</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="text-gray-400 hover:text-white hover:bg-gray-800"
-            >
-              <Globe className="h-4 w-4" />
+          {/* Sidebar header */}
+          <div className="flex items-center justify-between p-3 border-b border-slate-700">
+            <h2 className="font-bold">
+              {activePanel === "settings" ? "Filter Settings" : "Recent Earthquakes"}
+            </h2>
+            <Button variant="ghost" size="icon" onClick={() => setShowSidebar(false)}>
+              <X className="h-4 w-4 text-slate-400" />
             </Button>
           </div>
 
-          <div className="overflow-auto" style={{ maxHeight: isMobile ? "calc(70vh - 48px)" : "calc(100vh - 48px)" }}>
-            <EarthquakeSidebar
-              earthquakes={filteredEarthquakes}
-              onSelectEarthquake={setSelectedEarthquake}
-              magnitudeRange={magnitudeRange}
-              setMagnitudeRange={setMagnitudeRange}
-              depthRange={depthRange}
-              setDepthRange={setDepthRange}
-              timeFilterRange={timeFilterRange}
-              setTimeFilterRange={setTimeFilterRange}
-              zoneFilter={zoneFilter}
-              setZoneFilter={setZoneFilter}
-              activePanel={activePanel}
-            />
+          {/* Sidebar body */}
+          <div
+            className="overflow-auto"
+            style={{
+              maxHeight: isMobile ? "calc(70vh - 48px)" : "calc(100vh - 48px)",
+            }}
+          >
+            {/* EarthquakeSidebar if panel = list */}
+            {activePanel === "list" && (
+              <EarthquakeSidebar
+                earthquakes={filteredEarthquakes}
+                onSelectEarthquake={setSelectedEarthquake}
+                magnitudeRange={magnitudeRange}
+                setMagnitudeRange={setMagnitudeRange}
+                depthRange={depthRange}
+                setDepthRange={setDepthRange}
+                timeFilterRange={timeFilterRange}
+                setTimeFilterRange={setTimeFilterRange}
+                zoneFilter={zoneFilter}
+                setZoneFilter={setZoneFilter}
+                activePanel={activePanel}
+              />
+            )}
+            {/* Show filter UI if panel = settings */}
+            {activePanel === "settings" && (
+              <div className="p-4 text-sm">
+                <p>Your custom Filter UI here, or reuse EarthquakeSidebar with a different mode!</p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Earthquake details popup - positioned differently on mobile */}
+      {/* BOTTOM-RIGHT: 5 modals => about/facts, eruption, youtube, rshake, coffee */}
+      <div className="absolute bottom-4 right-4 z-[1001] flex flex-col gap-2">
+        <button
+          className="rounded-full p-2 bg-slate-900 text-white shadow-md hover:bg-slate-800"
+          onClick={() => setShowFactsPanel(true)}
+          title="Facts/About"
+        >
+          <Info className="h-5 w-5" />
+        </button>
+        <button
+          className="rounded-full p-2 bg-slate-900 text-white shadow-md hover:bg-slate-800"
+          onClick={() => setShowEruptionInfo(true)}
+          title="Eruption Info"
+        >
+          <VolcanoIcon className="h-5 w-5" />
+        </button>
+        <button
+          className="rounded-full p-2 bg-slate-900 text-white shadow-md hover:bg-slate-800"
+          onClick={() => setShowYoutubePlayer(!showYoutubePlayer)}
+          title="YouTube Feed"
+        >
+          <Youtube className="h-5 w-5" />
+        </button>
+        <button
+          className="rounded-full p-2 bg-slate-900 text-white shadow-md hover:bg-slate-800"
+          onClick={() => setShowRaspberryShakeInfo(true)}
+          title="Raspberry Shake"
+        >
+          <Activity className="h-5 w-5" />
+        </button>
+        <button
+          className="rounded-full p-2 bg-slate-900 text-white shadow-md hover:bg-slate-800"
+          onClick={() => setShowDonationInfo(true)}
+          title="Buy Me a Coffee"
+        >
+          <Coffee className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Earthquake details pop-up (mobile vs. desktop) */}
       {selectedEarthquake && (
         <div className={`fixed z-[1003] max-w-sm ${isMobile ? "bottom-16 left-4 right-4" : "bottom-4 left-4"}`}>
-          <EarthquakeDetails earthquake={selectedEarthquake} onClose={() => setSelectedEarthquake(null)} />
+          <EarthquakeDetails
+            earthquake={selectedEarthquake}
+            onClose={() => setSelectedEarthquake(null)}
+          />
         </div>
       )}
 
-      {/* Eruption Info panel with modal */}
+      {/* Eruption Info panel */}
       {showEruptionInfo && (
         <Modal onClose={() => setShowEruptionInfo(false)}>
           <EruptionInfo onClose={() => setShowEruptionInfo(false)} />
         </Modal>
       )}
 
-      {/* Facts panel with modal */}
+      {/* Facts panel */}
       {showFactsPanel && (
         <Modal onClose={() => setShowFactsPanel(false)}>
           <FactsPanel onClose={() => setShowFactsPanel(false)} />
         </Modal>
       )}
 
-      {/* Donation Info panel with modal */}
+      {/* Donation Info panel */}
       {showDonationInfo && (
         <Modal onClose={() => setShowDonationInfo(false)}>
           <DonationInfo onClose={() => setShowDonationInfo(false)} />
         </Modal>
       )}
 
-      {/* Raspberry Shake Info panel with modal */}
+      {/* Raspberry Shake Info panel */}
       {showRaspberryShakeInfo && (
         <Modal onClose={() => setShowRaspberryShakeInfo(false)}>
           <RaspberryShakeInfo onClose={() => setShowRaspberryShakeInfo(false)} />
         </Modal>
       )}
 
-      {/* Notification Settings panel with modal */}
+      {/* Notification Settings panel */}
       {showNotificationSettings && (
         <Modal onClose={() => setShowNotificationSettings(false)}>
           <NotificationSettings
@@ -543,8 +485,15 @@ export default function EarthquakeMap() {
         </Modal>
       )}
 
-      {/* Admin Draw Panel - now as a draggable panel */}
-      {showAdminPanel && leafletMapRef.current && leafletMapRef.current.map && leafletMapRef.current.L && (
+      {/* Map settings */}
+      {showMapSettings && (
+        <Modal onClose={() => setShowMapSettings(false)}>
+          <MapSettings onClose={() => setShowMapSettings(false)} />
+        </Modal>
+      )}
+
+      {/* Admin panel */}
+      {showAdminPanel && leafletMapRef.current?.map && leafletMapRef.current?.L && (
         <DraggablePanel
           onClose={() => setShowAdminPanel(false)}
           title="Admin Panel"
@@ -559,9 +508,12 @@ export default function EarthquakeMap() {
         </DraggablePanel>
       )}
 
-      {/* Seismometer Display - draggable panel */}
+      {/* Seismometer Display */}
       {selectedSeismometer && (
-        <DraggablePanel title={`${selectedSeismometer.name} Seismometer`} onClose={() => setSelectedSeismometer(null)}>
+        <DraggablePanel
+          title={`${selectedSeismometer.name} Seismometer`}
+          onClose={() => setSelectedSeismometer(null)}
+        >
           <SeismometerDisplay
             seismometer={selectedSeismometer}
             onClose={() => setSelectedSeismometer(null)}
@@ -569,21 +521,17 @@ export default function EarthquakeMap() {
         </DraggablePanel>
       )}
 
-      {showWelcomeMessage && <WelcomeMessage onClose={() => setShowWelcomeMessage(false)} />}
+      {/* Welcome Message */}
+      {showWelcomeMessage && (
+        <WelcomeMessage onClose={() => setShowWelcomeMessage(false)} />
+      )}
 
-      {/* Add the welcome message component to the JSX, right before the closing </div> of the main component */}
+      {/* YouTube Player */}
       {showYoutubePlayer && (
         <YoutubePlayer
           defaultVideoId={localStorage.getItem("earthquakeYoutubeVideoId") || "xDRWMU9JzKA"}
           onClose={() => setShowYoutubePlayer(false)}
         />
-      )}
-
-      {/* Add MapSettings modal */}
-      {showMapSettings && (
-        <Modal onClose={() => setShowMapSettings(false)}>
-          <MapSettings onClose={() => setShowMapSettings(false)} />
-        </Modal>
       )}
     </div>
   )
