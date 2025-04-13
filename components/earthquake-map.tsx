@@ -15,6 +15,8 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { DraggablePanel } from "@/components/draggable-panel"
+import { useMapLayers } from "@/hooks/use-map-layers"
+import { useRouter } from "next/navigation"
 
 // Replace static imports with dynamic imports for heavy components
 
@@ -77,7 +79,7 @@ import MapSettings from "@/components/map-settings"
 
 // Make sure the component is exported as default
 export default function EarthquakeMap() {
-  // Rest of the component remains the same
+  const router = useRouter()
   const [selectedEarthquake, setSelectedEarthquake] = useState<Earthquake | null>(null)
   const [magnitudeRange, setMagnitudeRange] = useLocalStorage<[number, number]>("earthquakeMagnitudeRange", [-2, 8])
   const [depthRange, setDepthRange] = useLocalStorage<[number, number]>("earthquakeDepthRange", [0, 25])
@@ -86,6 +88,16 @@ export default function EarthquakeMap() {
   const { earthquakes, isLoading, error, lastUpdated } = useEarthquakes()
   const [selectedSeismometer, setSelectedSeismometer] = useState<CustomSeismometer | null>(null)
   const [mapKey, setMapKey] = useState(0)
+
+  // Use our map layers hook for all layer visibility states
+  const {
+    showSeismicStations,
+    showGpsStations,
+    showSeismometers,
+    showLavaFlows,
+    showBerms,
+    showEarthquakes
+  } = useMapLayers()
 
   // Use localStorage to remember panel visibility preferences
   const [showSidebar, setShowSidebar] = useLocalStorage("earthquakeShowSidebar", true)
@@ -101,14 +113,6 @@ export default function EarthquakeMap() {
   const [showRaspberryShakeInfo, setShowRaspberryShakeInfo] = useState(false)
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
   const [showMapSettings, setShowMapSettings] = useState(false)
-
-  // Map feature toggles - GPS stations are always visible
-  const [showSeismicStations] = useLocalStorage("earthquakeShowSeismicStations", false)
-  const [showGpsStations] = useLocalStorage("earthquakeShowGpsStations", true) // Default to true
-  const [showSeismometers] = useLocalStorage("earthquakeShowSeismometers", false)
-  const [showLavaFlows] = useLocalStorage("earthquakeShowLavaFlows", true)
-  const [showBerms] = useLocalStorage("earthquakeShowBerms", true)
-  const [showEarthquakes] = useLocalStorage("earthquakeShowEarthquakes", true)
 
   // Refs for Leaflet map and L
   const leafletMapRef = useRef<{ map: any; L: any } | null>(null)
@@ -324,14 +328,7 @@ export default function EarthquakeMap() {
           variant="outline"
           size="sm"
           className="bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white flex items-center gap-1"
-          onClick={() => {
-            console.log("Opening admin panel", {
-              mapRef: leafletMapRef.current,
-              hasMap: leafletMapRef.current?.map ? true : false,
-              hasL: leafletMapRef.current?.L ? true : false,
-            })
-            setShowAdminPanel(true)
-          }}
+          onClick={() => router.push('/admin')}
         >
           <Pencil className="h-4 w-4" />
           <span>Admin</span>
@@ -565,7 +562,10 @@ export default function EarthquakeMap() {
       {/* Seismometer Display - draggable panel */}
       {selectedSeismometer && (
         <DraggablePanel title={`${selectedSeismometer.name} Seismometer`} onClose={() => setSelectedSeismometer(null)}>
-          <SeismometerDisplay seismometer={selectedSeismometer} />
+          <SeismometerDisplay
+            seismometer={selectedSeismometer}
+            onClose={() => setSelectedSeismometer(null)}
+          />
         </DraggablePanel>
       )}
 

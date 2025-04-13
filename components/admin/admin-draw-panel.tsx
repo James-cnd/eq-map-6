@@ -11,13 +11,13 @@ import { Lock } from "lucide-react"
 // Import AdminDashboard - this one exists
 import AdminDashboard from "@/components/admin-dashboard"
 
-// Comment out imports for components that don't exist yet
-// import FissurePanel from "@/components/fissure-panel"
-// import LavaFlowPanel from "@/components/lava-flow-panel"
-// import BermPanel from "@/components/berm-panel"
-// import GpsPanel from "@/components/gps-panel"
-// import SeismometerPanel from "@/components/seismometer-panel"
-// import YoutubePanel from "@/components/youtube-panel"
+// Import section components
+import { AdminFissures } from "./sections/admin-fissures"
+import { AdminLavaFlows } from "./sections/admin-lava-flows"
+import { AdminBerms } from "./sections/admin-berms"
+import { AdminGpsStations } from "./sections/admin-gps-stations"
+import { AdminSeismicStations } from "./sections/admin-seismic-stations"
+import { AdminYoutubeFeeds } from "./sections/admin-youtube-feeds"
 
 // Export types that were previously defined in this file
 export interface CustomFissure {
@@ -67,6 +67,12 @@ interface AdminDrawPanelProps {
   L: any
 }
 
+// Drawing tool interfaces
+interface DrawingMode {
+  type: 'fissure' | 'lavaFlow' | 'berm' | null
+  active: boolean
+}
+
 export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps) {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -78,6 +84,11 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
   const [drawControlLoaded, setDrawControlLoaded] = useState(false)
   const [isLoadingDrawTools, setIsLoadingDrawTools] = useState(false)
   const [showLogoutButton, setShowLogoutButton] = useState(false)
+
+  // Drawing state
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>({ type: null, active: false })
+  const [drawnItems, setDrawnItems] = useState<any[]>([])
+  const [saveButtonVisible, setSaveButtonVisible] = useState(false)
 
   // Refs for Leaflet draw control and drawn items
   const drawControlRef = useRef<any>(null)
@@ -252,7 +263,7 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
     // Create a button for drawing lines
     const drawLineButton = document.createElement("button")
     drawLineButton.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18"/></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>'
     drawLineButton.title = "Draw Line"
     drawLineButton.style.display = "block"
     drawLineButton.style.width = "30px"
@@ -456,68 +467,32 @@ export default function AdminDrawPanel({ onClose, map, L }: AdminDrawPanelProps)
 
         {/* Fissure Drawing Tab */}
         <TabsContent value="fissures">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">Fissure Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to draw and manage fissures on the map.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminFissures map={map} L={L} />
         </TabsContent>
 
         {/* Lava Flows Tab */}
         <TabsContent value="lavaFlows">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">Lava Flow Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to draw and manage lava flows on the map.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminLavaFlows map={map} L={L} />
         </TabsContent>
 
         {/* Berms Tab */}
         <TabsContent value="berms">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">Berm Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to draw and manage berms on the map.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminBerms map={map} L={L} />
         </TabsContent>
 
         {/* GPS Stations Tab */}
         <TabsContent value="gps">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">GPS Station Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to add and manage GPS stations on the map.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminGpsStations map={map} L={L} />
         </TabsContent>
 
         {/* Seismometers Tab */}
         <TabsContent value="seismometers">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">Seismometer Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to add and manage seismometers on the map.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminSeismicStations map={map} L={L} />
         </TabsContent>
 
         {/* YouTube Management Tab */}
         <TabsContent value="youtube">
-          <div className="p-4 bg-gray-800 rounded-md">
-            <h3 className="text-lg font-medium mb-4">Live Feed Management</h3>
-            <p className="text-gray-400 mb-4">
-              This feature is currently under development. You will be able to manage YouTube live feeds.
-            </p>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-          </div>
+          <AdminYoutubeFeeds />
         </TabsContent>
       </Tabs>
       {isAuthenticated && (
