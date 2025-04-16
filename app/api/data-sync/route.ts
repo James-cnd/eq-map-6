@@ -4,14 +4,17 @@ import type { NextRequest } from "next/server"
 const clients = new Set<ReadableStreamDefaultController>()
 
 // Function to send updates to all connected clients
-export function sendUpdateToClients(key: string) {
+function sendUpdateToClients(key: string) {
   const data = JSON.stringify({
     key,
     timestamp: Date.now(),
   })
 
   clients.forEach((controller) => {
-    controller.enqueue(`event: data-update\ndata: ${data}\n\n`)
+    controller.enqueue(`event: data-update
+data: ${data}
+
+`)
   })
 }
 
@@ -47,3 +50,5 @@ export async function GET(request: NextRequest) {
     },
   )
 }
+
+export { sendUpdateToClients }
