@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import type { Earthquake } from "@/types/earthquake"
 import type { Zone } from "@/types/zones"
-import { SEISMIC_STATIONS, GPS_STATIONS } from "@/types/stations"
 import { VOLCANIC_FISSURES } from "@/types/fissures"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import type { CustomGpsStation } from "@/types/stations"
 import type { CustomSeismometer, LavaFlow, Berm } from "@/components/admin-draw-panel"
 import "leaflet/dist/leaflet.css"
-import { EXTENDED_GPS_STATIONS } from "@/data/gps-stations-extended"
+import { useGlobalSettings } from "@/hooks/use-global-settings"
 
 // Update the interface to include showEarthquakes and showGpsStations
 interface LeafletMapProps {
@@ -180,6 +179,8 @@ export default function LeafletMap({
   const gpsMarkersRef = useRef<any[]>([])
   const gpsLayerGroupRef = useRef<any>(null)
 
+  const { gpsStationLinks } = useGlobalSettings()
+
   // Get custom GPS stations from localStorage
   const [customGpsStations] = useLocalStorage<CustomGpsStation[]>("earthquakeCustomGpsStations", [])
 
@@ -228,7 +229,12 @@ export default function LeafletMap({
 
         if (isMounted && mapRef.current) {
           // Initialize the map with saved position
-          const map = L.map(mapRef.current).setView(mapPosition.center as [number, number], mapPosition.zoom)
+          const map = L.map(mapRef.current, {
+            tap: true, // Enable tap for touch devices
+            tapTolerance: 15, // Increase tap tolerance for better touch experience
+            bounceAtZoomLimits: false, // Prevent bouncing at zoom limits which can be disorienting on mobile
+            wheelDebounceTime: 100, // Debounce wheel events for smoother zooming
+          }).setView(mapPosition.center as [number, number], mapPosition.zoom)
 
           // Store the map instance in the ref
           mapInstanceRef.current = map
@@ -353,26 +359,26 @@ export default function LeafletMap({
         const arrowIcon = L.divIcon({
           html: `
 <div style="
- position: relative;
- width: 0;
- height: 0;
+position: relative;
+width: 0;
+height: 0;
 ">
- <div style="
-   position: absolute;
-   top: -30px;
-   left: -12px;
-   width: 24px;
-   height: 30px;
-   background-color: rgba(255, 0, 0, 0.9);
-   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-   animation: bounce 1s infinite alternate;
- "></div>
+<div style="
+  position: absolute;
+  top: -30px;
+  left: -12px;
+  width: 24px;
+  height: 30px;
+  background-color: rgba(255, 0, 0, 0.9);
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  animation: bounce 1s infinite alternate;
+"></div>
 </div>
 <style>
- @keyframes bounce {
-   from { transform: translateY(0); }
-   to { transform: translateY(-8px); }
- }
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}
 </style>
 `,
           className: "",
@@ -426,7 +432,7 @@ export default function LeafletMap({
               [maxLat, maxLng],
             ]
 
-            // Create rectangle
+            // Create rectangle with a blue color and semi-transparent fill
             zoneRectRef.current = L.rectangle(bounds, {
               color: "#3498DB",
               weight: 2,
@@ -496,20 +502,20 @@ export default function LeafletMap({
 
           // Create marker with the custom icon
           const marker = L.marker([quake.latitude, quake.longitude], {
-            icon: createEarthquakeIcon(L, magnitude),
+            icon: createEarthquakeIcon(L, magnitude, quake.review === "mlw"),
             zIndexOffset: Math.floor(magnitude * 100), // Higher magnitudes appear on top
           }).addTo(map)
 
           // Format tooltip content
           const tooltipContent = `
-         <div class="earthquake-tooltip">
-           <div class="font-bold">M${magnitude.toFixed(1)} ${quake.review ? `(${quake.review})` : ""}</div>
-           <div>Location: ${quake.humanReadableLocation}</div>
-           <div>Depth: ${quake.depth.toFixed(1)} km</div>
-           <div>Coordinates: ${quake.latitude.toFixed(2)}°, ${quake.longitude.toFixed(2)}°</div>
-           <div class="text-xs mt-1">${new Date(quake.timestamp).toLocaleString()}</div>
-         </div>
-       `
+        <div class="earthquake-tooltip">
+          <div class="font-bold">M${magnitude.toFixed(1)} ${quake.review ? `(${quake.review})` : ""}</div>
+          <div>Location: ${quake.humanReadableLocation}</div>
+          <div>Depth: ${quake.depth.toFixed(1)} km</div>
+          <div>Coordinates: ${quake.latitude.toFixed(2)}°, ${quake.longitude.toFixed(2)}°</div>
+          <div class="text-xs mt-1">${new Date(quake.timestamp).toLocaleString()}</div>
+        </div>
+      `
 
           // Add tooltip with improved formatting
           marker.bindTooltip(tooltipContent, {
@@ -529,21 +535,21 @@ export default function LeafletMap({
             // Create a black circle icon for the newest earthquake
             const newestIcon = L.divIcon({
               html: `
-             <div style="
-               background-color: black; 
-               width: 30px; 
-               height: 30px; 
-               border-radius: 50%; 
-               border: 3px solid white;
-               box-shadow: 0  0 10px rgba(255, 255, 255, 0.8);
-               display: flex;
-               align-items: center;
-               justify-content: center;
-               color: white;
-               font-weight: bold;
-               font-size: 12px;
-             ">NEW</div>
-           `,
+            <div style="
+              background-color: black; 
+              width: 30px; 
+              height: 30px; 
+              border-radius: 50%; 
+              border: 3px solid white;
+              box-shadow: 0  0 10px rgba(255, 255, 255, 0.8);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: bold;
+              font-size: 12px;
+            ">NEW</div>
+          `,
               className: "",
               iconSize: [30, 30],
               iconAnchor: [15, 15],
@@ -595,50 +601,47 @@ export default function LeafletMap({
 
     // Add seismic station markers if enabled
     if (showSeismicStations) {
-      SEISMIC_STATIONS.forEach((station) => {
-        try {
-          // Create custom icon for seismic station
-          const seismicIcon = L.divIcon({
-            html: `
-             <div style="
-               background-color: rgba(255, 0, 0, 0.9); 
-               width: 18px; 
-               height: 18px; 
-               border-radius: 50%; 
-               border: 3px solid white;
-               box-shadow: 0 0 6px rgba(0,0,0,0.7);
-             "></div>
-           `,
-            className: "",
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-          })
-
-          const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
-            icon: seismicIcon,
-            zIndexOffset: 2000, // Ensure stations appear above earthquake markers
-          }).addTo(map)
-
-          // Add tooltip
-          marker.bindTooltip(
-            `
-           <div>
-             <div class="font-bold">${station.name}</div>
-             <div>Seismic Station</div>
-             <div>${station.description || ""}</div>
-           </div>
-         `,
-            {
-              className: "leaflet-tooltip-custom",
-              direction: "top",
-            },
-          )
-
-          stationMarkersRef.current.push(marker)
-        } catch (error) {
-          console.error("Error creating seismic station marker:", error)
-        }
-      })
+      // SEISMIC_STATIONS.forEach((station) => { // REMOVE THIS LINE
+      //   try {
+      //     // Create custom icon for seismic station
+      //     const seismicIcon = L.divIcon({
+      //       html: `
+      //       <div style="
+      //         background-color: rgba(255, 0, 0, 0.9);
+      //         width: 18px;
+      //         height: 18px;
+      //         border-radius: 50%;
+      //         border: 3px solid white;
+      //         box-shadow: 0 0 6px rgba(0,0,0,0.7);
+      //       "></div>
+      //     `,
+      //       className: "",
+      //       iconSize: [18, 18],
+      //       iconAnchor: [9, 9],
+      //     })
+      //     const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
+      //       icon: seismicIcon,
+      //       zIndexOffset: 2000, // Ensure stations appear above earthquake markers
+      //     }).addTo(map)
+      //     // Add tooltip
+      //     marker.bindTooltip(
+      //       `
+      //     <div>
+      //       <div class="font-bold">${station.name}</div>
+      //       <div>Seismic Station</div>
+      //       <div>${station.description || ""}</div>
+      //     </div>
+      //   `,
+      //       {
+      //         className: "leaflet-tooltip-custom",
+      //         direction: "top",
+      //       },
+      //     )
+      //     stationMarkersRef.current.push(marker)
+      //   } catch (error) {
+      //     console.error("Error creating seismic station marker:", error)
+      //   }
+      // }) // REMOVE THIS LINE
     }
   }, [leaflet, showSeismicStations, isMapReady])
 
@@ -667,235 +670,285 @@ export default function LeafletMap({
       map.addLayer(gpsLayerGroupRef.current)
     }
 
+    // Add a function to determine marker size based on screen width
+    const getMarkerSize = () => {
+      if (typeof window === "undefined") return 8 // Default size
+
+      const width = window.innerWidth
+      if (width < 768) {
+        return 12 // Larger size for mobile phones
+      } else if (width < 1024) {
+        return 10 // Medium size for tablets/iPads
+      } else {
+        return 8 // Original size for desktops
+      }
+    }
+
     // Add all GPS stations from all sources
 
     // 1. Add official GPS stations
-    GPS_STATIONS.forEach((station) => {
-      try {
-        // Create a diamond-shaped marker for GPS stations with pink color
-        // Size is now 0.5 of the original (doubled from previous 0.25)
-        const gpsIcon = L.divIcon({
-          html: `
-<div style="
-  position: relative;
-  width: 0;
-  height: 0;
-">
-  <div style="
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #FF1493;
-    transform: rotate(45deg);
-    border: 1px solid white;
-    box-shadow: 0 0 3px rgba(0,0,0,0.7);
-  "></div>
-</div>
-`,
-          className: "gps-station-marker",
-          iconSize: [8, 8],
-          iconAnchor: [4, 4],
-        })
+    // GPS_STATIONS.forEach((station) => { // REMOVE THIS LINE
+    //   try {
+    //     // Update the marker creation for all GPS station types to use responsive sizing
+    //     const markerSize = getMarkerSize()
+    //     const gpsIcon = L.divIcon({
+    //       html: `
+    // <div style="
+    //  position: relative;
+    //  width: 0;
+    //  height: 0;
+    // ">
+    //  <div style="
+    //    position: absolute;
+    //    top: -${markerSize / 2}px;
+    //    left: -${markerSize / 2}px;
+    //    width: ${markerSize}px;
+    //    height: ${markerSize}px;
+    //    background-color: #FF1493;
+    //    transform: rotate(45deg);
+    //    border: 1px solid white;
+    //    box-shadow: 0 0 3px rgba(0,0,0,0.7);
+    //  "></div>
+    // </div>
+    // `,
+    //       className: "gps-station-marker",
+    //       iconSize: [markerSize, markerSize],
+    //       iconAnchor: [markerSize / 2, markerSize / 2],
+    //     })
 
-        const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
-          icon: gpsIcon,
-          pane: "gpsStationsPane", // Use the special high z-index pane
-          zIndexOffset: 2000, // Ensure high z-index
-        })
+    //     const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
+    //       icon: gpsIcon,
+    //       pane: "gpsStationsPane", // Use the special high z-index pane
+    //       zIndexOffset: 2000, // Ensure high z-index
+    //     })
 
-        // Add tooltip with station information
-        marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
-          className: "leaflet-tooltip-custom",
-          direction: "top",
-        })
+    //     // Add tooltip with station information
+    //     marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
+    //       className: "leaflet-tooltip-custom",
+    //       direction: "top",
+    //     })
 
-        // Add click handler for GPS stations
-        marker.on("click", () => {
-          // Get the volcanic system reference if available
-          const volc = station.description?.includes("volc:") ? station.description.split("volc:")[1].trim() : ""
+    //     // Add click handler for GPS stations
+    //     marker.on("click", () => {
+    //       // Get the volcanic system reference if available
+    //       const volc = station.description?.includes("volc:") ? station.description.split("volc:")[1].trim() : ""
 
-          // Determine which URL to use based on whether there's a volcanic system reference
-          let imageUrl
-          if (volc) {
-            imageUrl = `http://brunnur.vedur.is/gps/eldfjoll/${volc}/${station.id}-plate-90d.png`
-          } else {
-            imageUrl = `http://brunnur.vedur.is/gps/timeseries/${station.id}-plate-90d.png`
-          }
+    //       // Determine which URL to use based on whether there's a volcanic system reference
+    //       let imageUrl
+    //       if (volc) {
+    //         imageUrl = `http://brunnur.vedur.is/gps/eldfjoll/${volc}/${station.id}-plate-90d.png`
+    //       } else {
+    //         imageUrl = `http://brunnur.vedur.is/gps/timeseries/${station.id}-plate-90d.png`
+    //       }
 
-          // Create a popup with the station information
-          const popupContent = `
-<div class="station-popup">
-  <h3>${station.name} (${station.id})</h3>
-  <p>Click to view GPS data</p>
-</div>
-`
+    //       marker.on("click", () => {
+    //         // Check if we have a custom link for this station
+    //         const customLink = gpsStationLinks[station.id]
 
-          marker.bindPopup(popupContent).openPopup()
-        })
+    //         // Use the custom link if available, otherwise use the default
+    //         const dataUrl = customLink || imageUrl
 
-        // Add marker to the layer group
-        gpsLayerGroupRef.current.addLayer(marker)
-        gpsMarkersRef.current.push(marker)
-      } catch (error) {
-        console.error("Error creating GPS station marker:", error)
-      }
-    })
+    //         // Create a popup with the station information
+    //         const popupContent = `
+    // <div class="station-popup">
+    //  <h3>${station.name} (${station.id})</h3>
+    //  <p>Click to view GPS data</p>
+    //  <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs mt-2"
+    //    onclick="window.open('${dataUrl}', '_blank')">
+    //    View Data
+    //  </button>
+    // </div>
+    // `
+
+    //         marker
+    //           .bindPopup(popupContent, {
+    //             closeButton: true,
+    //             closeOnClick: false, // Don't close when clicking elsewhere on mobile
+    //             className: "mobile-friendly-popup",
+    //           })
+    //           .openPopup()
+    //       })
+    //     })
+
+    //     // Add marker to the layer group
+    //     gpsLayerGroupRef.current.addLayer(marker)
+    //     gpsMarkersRef.current.push(marker)
+    //   } catch (error) {
+    //     console.error("Error creating GPS station marker:", error)
+    //   }
+    // }) // REMOVE THIS LINE
 
     // 2. Add extended GPS stations
-    EXTENDED_GPS_STATIONS.forEach((station) => {
-      try {
-        // Create a diamond-shaped marker for extended GPS stations with a different color
-        const extendedGpsIcon = L.divIcon({
-          html: `
-<div style="
-  position: relative;
-  width: 0;
-  height: 0;
-">
-  <div style="
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #FF1493;
-    transform: rotate(45deg);
-    border: 1px solid white;
-    box-shadow: 0 0 3px rgba(0,0,0,0.7);
-  "></div>
-</div>
-`,
-          className: "gps-station-marker",
-          iconSize: [8, 8],
-          iconAnchor: [4, 4],
-        })
+    // EXTENDED_GPS_STATIONS.forEach((station) => { // REMOVE THIS LINE
+    //   try {
+    //     // Update the marker creation for all GPS station types to use responsive sizing
+    //     const markerSize = getMarkerSize()
+    //     // Create a diamond-shaped marker for extended GPS stations with a different color
+    //     const extendedGpsIcon = L.divIcon({
+    //       html: `
+    // <div style="
+    //  position: relative;
+    //  width: 0;
+    //  height: 0;
+    // ">
+    //  <div style="
+    //    position: absolute;
+    //    top: -${markerSize / 2}px;
+    //    left: -${markerSize / 2}px;
+    //    width: ${markerSize}px;
+    //    height: ${markerSize}px;
+    //    background-color: #FF1493;
+    //    transform: rotate(45deg);
+    //    border: 1px solid white;
+    //    box-shadow: 0 0 3px rgba(0,0,0,0.7);
+    //  "></div>
+    // </div>
+    // `,
+    //       className: "gps-station-marker",
+    //       iconSize: [markerSize, markerSize],
+    //       iconAnchor: [markerSize / 2, markerSize / 2],
+    //     })
 
-        const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
-          icon: extendedGpsIcon,
-          pane: "gpsStationsPane", // Use the special high z-index pane
-          zIndexOffset: 2000, // Ensure high z-index
-        })
+    //     const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
+    //       icon: extendedGpsIcon,
+    //       pane: "gpsStationsPane", // Use the special high z-index pane
+    //       zIndexOffset: 2000, // Ensure high z-index
+    //     })
 
-        // Add tooltip with station information
-        marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
-          className: "leaflet-tooltip-custom",
-          direction: "top",
-        })
+    //     // Add tooltip with station information
+    //     marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
+    //       className: "leaflet-tooltip-custom",
+    //       direction: "top",
+    //     })
 
-        // Add click handler for extended GPS stations
-        marker.on("click", () => {
-          // Create a popup with the station information
-          const popupContent = `
-<div class="station-popup">
-  <h3>${station.name} (${station.id})</h3>
-  <p>Source: ${station.source}</p>
-  <p>Type: ${station.type}</p>
-</div>
-`
+    //     // Add click handler for extended GPS stations
+    //     marker.on("click", () => {
+    //       // Create a popup with the station information
+    //       const popupContent = `
+    // <div class="station-popup">
+    //  <h3>${station.name} (${station.id})</h3>
+    //  <p>Source: ${station.source}</p>
+    //  <p>Type: ${station.type}</p>
+    // </div>
+    // `
 
-          marker.bindPopup(popupContent).openPopup()
-        })
+    //       marker
+    //         .bindPopup(popupContent, {
+    //           closeButton: true,
+    //           closeOnClick: false, // Don't close when clicking elsewhere on mobile
+    //           className: "mobile-friendly-popup",
+    //         })
+    //         .openPopup()
+    //     })
 
-        // Add marker to the layer group
-        gpsLayerGroupRef.current.addLayer(marker)
-        gpsMarkersRef.current.push(marker)
-      } catch (error) {
-        console.error("Error creating extended GPS station marker:", error)
-      }
-    })
+    //     // Add marker to the layer group
+    //     gpsLayerGroupRef.current.addLayer(marker)
+    //     gpsMarkersRef.current.push(marker)
+    //   } catch (error) {
+    //     console.error("Error creating extended GPS station marker:", error)
+    //   }
+    // }) // REMOVE THIS LINE
 
     // 3. Add additional GPS stations from the image
-    ADDITIONAL_GPS_STATIONS.forEach((station) => {
-      try {
-        // Create a diamond-shaped marker for additional GPS stations
-        const additionalGpsIcon = L.divIcon({
-          html: `
-<div style="
-  position: relative;
-  width: 0;
-  height: 0;
-">
-  <div style="
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #32CD32;
-    transform: rotate(45deg);
-    border: 1px solid white;
-    box-shadow: 0 0 3px rgba(0,0,0,0.7);
-  "></div>
-</div>
-`,
-          className: "gps-station-marker",
-          iconSize: [8, 8],
-          iconAnchor: [4, 4],
-        })
+    // ADDITIONAL_GPS_STATIONS.forEach((station) => {
+    //   try {
+    //     // Update the marker creation for all GPS station types to use responsive sizing
+    //     const markerSize = getMarkerSize()
+    //     // Create a diamond-shaped marker for additional GPS stations
+    //     const additionalGpsIcon = L.divIcon({
+    //       html: `
+    // <div style="
+    //  position: relative;
+    //  width: 0;
+    //  height: 0;
+    // ">
+    //  <div style="
+    //    position: absolute;
+    //    top: -${markerSize / 2}px;
+    //    left: -${markerSize / 2}px;
+    //    width: ${markerSize}px;
+    //    height: ${markerSize}px;
+    //    background-color: #32CD32;
+    //    transform: rotate(45deg);
+    //    border: 1px solid white;
+    //    box-shadow: 0 0 3px rgba(0,0,0,0.7);
+    //  "></div>
+    // </div>
+    // `,
+    //       className: "gps-station-marker",
+    //       iconSize: [markerSize, markerSize],
+    //       iconAnchor: [markerSize / 2, markerSize / 2],
+    //     })
 
-        const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
-          icon: additionalGpsIcon,
-          pane: "gpsStationsPane", // Use the special high z-index pane
-          zIndexOffset: 2000, // Ensure high z-index
-        })
+    //     const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
+    //       icon: additionalGpsIcon,
+    //       pane: "gpsStationsPane", // Use the special high z-index pane
+    //       zIndexOffset: 2000, // Ensure high z-index
+    //     })
 
-        // Add tooltip with station information
-        marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
-          className: "leaflet-tooltip-custom",
-          direction: "top",
-        })
+    //     // Add tooltip with station information
+    //     marker.bindTooltip(`GPS: <b>${station.id}</b> ${station.name}`, {
+    //       className: "leaflet-tooltip-custom",
+    //       direction: "top",
+    //     })
 
-        // Add click handler for additional GPS stations
-        marker.on("click", () => {
-          // Create a popup with the station information
-          const popupContent = `
-<div class="station-popup">
-  <h3>${station.name} (${station.id})</h3>
-  <p>Source: ${station.source}</p>
-  <p>Type: ${station.type}</p>
-</div>
-`
+    //     // Add click handler for additional GPS stations
+    //     marker.on("click", () => {
+    //       // Create a popup with the station information
+    //       const popupContent = `
+    // <div class="station-popup">
+    //  <h3>${station.name} (${station.id})</h3>
+    //  <p>Source: ${station.source}</p>
+    //  <p>Type: ${station.type}</p>
+    // </div>
+    // `
 
-          marker.bindPopup(popupContent).openPopup()
-        })
+    //       marker
+    //         .bindPopup(popupContent, {
+    //           closeButton: true,
+    //           closeOnClick: false, // Don't close when clicking elsewhere on mobile
+    //           className: "mobile-friendly-popup",
+    //         })
+    //         .openPopup()
+    //     })
 
-        // Add marker to the layer group
-        gpsLayerGroupRef.current.addLayer(marker)
-        gpsMarkersRef.current.push(marker)
-      } catch (error) {
-        console.error("Error creating additional GPS station marker:", error)
-      }
-    })
+    //     // Add marker to the layer group
+    //     gpsLayerGroupRef.current.addLayer(marker)
+    //     gpsMarkersRef.current.push(marker)
+    //   } catch (error) {
+    //     console.error("Error creating additional GPS station marker:", error)
+    //   }
+    // }) // REMOVE THIS LINE
 
     // 4. Add custom GPS stations
     customGpsStations.forEach((station) => {
       try {
+        // Update the marker creation for all GPS station types to use responsive sizing
+        const markerSize = getMarkerSize()
         // Create a diamond-shaped marker for custom GPS stations with a different color
         const customGpsIcon = L.divIcon({
           html: `
 <div style="
-  position: relative;
-  width: 0;
-  height: 0;
+ position: relative;
+ width: 0;
+ height: 0;
 ">
-  <div style="
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #A52A2A;
-    transform: rotate(45deg);
-    border: 1px solid white;
-    box-shadow: 0 0 3px rgba(0,0,0,0.7);
-  "></div>
+ <div style="
+   position: absolute;
+   top: -${markerSize / 2}px;
+   left: -${markerSize / 2}px;
+   width: ${markerSize}px;
+   height: ${markerSize}px;
+   background-color: #A52A2A;
+   transform: rotate(45deg);
+   border: 1px solid white;
+   box-shadow: 0 0 3px rgba(0,0,0,0.7);
+ "></div>
 </div>
 `,
           className: "gps-station-marker",
-          iconSize: [8, 8],
-          iconAnchor: [4, 4],
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [markerSize / 2, markerSize / 2],
         })
 
         const marker = L.marker([station.coordinates[0], station.coordinates[1]], {
@@ -918,13 +971,19 @@ export default function LeafletMap({
           // Create a popup with the station information
           const popupContent = `
 <div class="station-popup">
-  <h3>${station.name}</h3>
-  <p>Custom GPS Station</p>
-  <p>${station.description || ""}</p>
+ <h3>${station.name}</h3>
+ <p>Custom GPS Station</p>
+ <p>${station.description || ""}</p>
 </div>
 `
 
-          marker.bindPopup(popupContent).openPopup()
+          marker
+            .bindPopup(popupContent, {
+              closeButton: true,
+              closeOnClick: false, // Don't close when clicking elsewhere on mobile
+              className: "mobile-friendly-popup",
+            })
+            .openPopup()
         })
 
         // Add marker to the layer group
@@ -941,15 +1000,15 @@ export default function LeafletMap({
       style.id = "gps-station-style"
       style.innerHTML = `
 .gps-station-marker {
-  z-index: 2000 !important;
+z-index: 2000 !important;
 }
 .leaflet-pane.gpsStationsPane {
-  z-index: 2000 !important;
+z-index: 2000 !important;
 }
 `
       document.head.appendChild(style)
     }
-  }, [leaflet, customGpsStations, isMapReady]) // Removed showGpsStations from dependencies since we always show them
+  }, [leaflet, customGpsStations, isMapReady, gpsStationLinks]) // Removed showGpsStations from dependencies since we always show them
 
   // Add/remove fissure lines based on enabled fissures
   useEffect(() => {
@@ -1001,13 +1060,13 @@ export default function LeafletMap({
                 // Add tooltip
                 line.bindTooltip(
                   `
-                 <div>
-                   <div class="font-bold">${fissure.name}</div>
-                   <div>${fissure.eruption}</div>
-                   <div>Started: ${new Date(fissure.startDate).toLocaleDateString()}</div>
-                   ${fissure.endDate ? `<div>Ended: ${new Date(fissure.endDate).toLocaleDateString()}</div>` : "<div>Ongoing</div>"}
-                 </div>
-               `,
+                <div>
+                  <div class="font-bold">${fissure.name}</div>
+                  <div>${fissure.eruption}</div>
+                  <div>Started: ${new Date(fissure.startDate).toLocaleDateString()}</div>
+                  ${fissure.endDate ? `<div>Ended: ${new Date(fissure.endDate).toLocaleDateString()}</div>` : "<div>Ongoing</div>"}
+                </div>
+              `,
                   {
                     className: "leaflet-tooltip-custom",
                     sticky: true,
@@ -1023,8 +1082,8 @@ export default function LeafletMap({
                 // Create a star icon
                 const starIcon = L.divIcon({
                   html: `
-                   <div class="eruption-star" style="color: ${fissure.color};">★</div>
-                 `,
+                  <div class="eruption-star" style="color: ${fissure.color};">★</div>
+                `,
                   className: "",
                   iconSize: [20, 20],
                   iconAnchor: [10, 10],
@@ -1078,15 +1137,15 @@ export default function LeafletMap({
           // Create custom icon for seismometer
           const seismometerIcon = L.divIcon({
             html: `
-             <div style="
-               background-color: rgba(128,0,128,0.7);
-               width: 9px;
-               height: 9px;
-               border: 1px solid white;
-               box-shadow: 0 0 4px rgba(0,0,0,0.7);
-               border-radius: 50%;
-             "></div>
-           `,
+            <div style="
+              background-color: rgba(128,0,128,0.7);
+              width: 9px;
+              height: 9px;
+              border: 1px solid white;
+              box-shadow: 0 0 4px rgba(0,0,0,0.7);
+              border-radius: 50%;
+            "></div>
+          `,
             className: "",
             iconSize: [9, 9],
             iconAnchor: [4.5, 4.5],
@@ -1100,12 +1159,12 @@ export default function LeafletMap({
           // Add tooltip
           marker.bindTooltip(
             `
-           <div>
-             <div class="font-bold">${seismometer.name}</div>
-             <div>Seismometer</div>
-             <div>${seismometer.description || ""}</div>
-           </div>
-         `,
+          <div>
+            <div class="font-bold">${seismometer.name}</div>
+            <div>Seismometer</div>
+            <div>${seismometer.description || ""}</div>
+          </div>
+        `,
             {
               className: "leaflet-tooltip-custom",
               direction: "top",
@@ -1158,12 +1217,12 @@ export default function LeafletMap({
           // Add tooltip
           polygon.bindTooltip(
             `
-           <div>
-             <div class="font-bold">${flow.name}</div>
-             <div>Lava Flow</div>
-             <div>${flow.description || ""}</div>
-           </div>
-         `,
+          <div>
+            <div class="font-bold">${flow.name}</div>
+            <div>Lava Flow</div>
+            <div>${flow.description || ""}</div>
+          </div>
+        `,
             {
               className: "leaflet-tooltip-custom",
               direction: "top",
@@ -1209,12 +1268,12 @@ export default function LeafletMap({
           // Add tooltip
           polygon.bindTooltip(
             `
-           <div>
-             <div class="font-bold">${berm.name}</div>
-             <div>Berm</div>
-             <div>${berm.description || ""}</div>
-           </div>
-         `,
+          <div>
+            <div class="font-bold">${berm.name}</div>
+            <div>Berm</div>
+            <div>${berm.description || ""}</div>
+          </div>
+        `,
             {
               className: "leaflet-tooltip-custom",
               direction: "top",
@@ -1259,6 +1318,38 @@ export default function LeafletMap({
     }
   }, [leaflet, isMapReady])
 
+  // Add a useEffect to handle window resize events and update marker sizes
+  useEffect(() => {
+    if (!leaflet || !isMapReady) return
+
+    const handleResize = () => {
+      // Force refresh of GPS markers when window size changes significantly
+      if (gpsLayerGroupRef.current) {
+        gpsLayerGroupRef.current.clearLayers()
+
+        // This will trigger the useEffect that adds GPS stations with the new size
+        const event = new CustomEvent("mapSettingsChanged", {
+          detail: { showGpsStations: true },
+        })
+        window.dispatchEvent(event)
+      }
+    }
+
+    // Debounce the resize event to avoid excessive updates
+    let resizeTimer: NodeJS.Timeout
+    const debouncedResize = () => {
+      clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(handleResize, 500)
+    }
+
+    window.addEventListener("resize", debouncedResize)
+
+    return () => {
+      window.removeEventListener("resize", debouncedResize)
+      clearTimeout(resizeTimer)
+    }
+  }, [leaflet, isMapReady])
+
   // Enhance the map position saving to ensure it happens on all map movements
   useEffect(() => {
     if (!leaflet || !leaflet.map) return
@@ -1296,48 +1387,60 @@ export default function LeafletMap({
   }, [leaflet, mapPosition, setMapPosition])
 
   // Helper function to create earthquake icons
-  const createEarthquakeIcon = (L: any, magnitude: number) => {
+  const createEarthquakeIcon = (L: any, magnitude: number, isManuallyReviewed = false) => {
+    // Calculate size based on magnitude
+    // Base size for magnitude 0 is 20px, and we scale up by 5px per magnitude unit
+    const baseSize = 20
+    const sizeMultiplier = 5
+    const size = Math.max(baseSize + magnitude * sizeMultiplier, 12) // Minimum size of 12px
+
+    // Choose border color based on review status
+    const borderColor = isManuallyReviewed ? "black" : "white"
+
+    // Update this to add border only for manually reviewed earthquakes
+    const borderStyle = isManuallyReviewed ? "2px solid black" : "none"
+
     return L.divIcon({
       html: `
-       <div style="
-         position: relative;
-         width: 20px;
-         height: 25px;
-       ">
-         <div style="
-           position: absolute;
-           top: 0;
-           left: 0;
-           width: 20px;
-           height: 20px;
-           background-color: ${getColorForMagnitude(magnitude)};
-           border-radius: 50%;
-           border: 2px solid white;
-           box-shadow: 0 0 5px rgba(0,0,0,0.5);
-           display: flex;
-           align-items: center;
-           justify-content: center;
-           color: white;
-           font-weight: bold;
-           font-size: 10px;
-         ">${magnitude.toFixed(1)}</div>
-         <div style="
-           position: absolute;
-           bottom: 0;
-           left: 50%;
-           transform: translateX(-50%);
-           width: 0;
-           height: 0;
-           border-left: 4px solid transparent;
-           border-right: 4px solid transparent;
-           border-top: 6px solid ${getColorForMagnitude(magnitude)};
-         "></div>
-       </div>
-     `,
+      <div style="
+        position: relative;
+        width: ${size}px;
+        height: ${size + 5}px;
+      ">
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: ${size}px;
+          height: ${size}px;
+          background-color: ${getColorForMagnitude(magnitude)};
+          border-radius: 50%;
+          border: ${borderStyle};
+          box-shadow: 0 0 5px rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+          font-size: ${Math.max(10, Math.min(14, 8 + magnitude))}px;
+        ">${magnitude.toFixed(1)}</div>
+        <div style="
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 4px solid transparent;
+          border-right: 4px solid transparent;
+          border-top: 6px solid ${getColorForMagnitude(magnitude)};
+        "></div>
+      </div>
+    `,
       className: "",
-      iconSize: [20, 25],
-      iconAnchor: [10, 25], // Bottom center of the pin
-      popupAnchor: [0, -20], // Center above the pin
+      iconSize: [size, size + 5],
+      iconAnchor: [size / 2, size + 5], // Bottom center of the pin
+      popupAnchor: [0, -size], // Center above the pin
     })
   }
 

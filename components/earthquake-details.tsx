@@ -15,6 +15,7 @@ interface EarthquakeDetailsProps {
 export function EarthquakeDetails({ earthquake, onClose }: EarthquakeDetailsProps) {
   const quakeDate = new Date(earthquake.timestamp)
   const volcanicSystem = getVolcanicSystem(earthquake.latitude, earthquake.longitude)
+  const isManuallyReviewed = earthquake.review === "mlw"
 
   return (
     <Card className="shadow-lg bg-gray-900 border-gray-700 text-gray-200">
@@ -36,12 +37,32 @@ export function EarthquakeDetails({ earthquake, onClose }: EarthquakeDetailsProp
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div
-                className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg"
-                style={{
-                  backgroundColor: getColorForMagnitude(earthquake.size),
-                }}
+                className="relative flex items-center justify-center"
+                style={{ width: "36px", height: "36px", transform: "scale(0.75)" }}
               >
-                {earthquake.size.toFixed(1)}
+                {isManuallyReviewed && (
+                  <div
+                    className="absolute rounded-full bg-black"
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      transform: "scale(1.33)",
+                      top: "0",
+                      left: "0",
+                      zIndex: 0,
+                    }}
+                  ></div>
+                )}
+                <div
+                  className="absolute rounded-full flex items-center justify-center text-white font-bold text-lg z-10"
+                  style={{
+                    backgroundColor: getColorForMagnitude(earthquake.size),
+                    width: "36px",
+                    height: "36px",
+                  }}
+                >
+                  {earthquake.size.toFixed(1)}
+                </div>
               </div>
               <div>
                 <p className="text-sm text-gray-400">Magnitude</p>
@@ -116,7 +137,7 @@ export function EarthquakeDetails({ earthquake, onClose }: EarthquakeDetailsProp
                 <Activity className="h-4 w-4" />
                 <span className="text-sm">Review Status</span>
               </div>
-              <p className="text-white">{earthquake.review === "mlw" ? "Manually Reviewed" : "Automatic"}</p>
+              <p className="text-white">{isManuallyReviewed ? "Manually Reviewed" : "Automatic"}</p>
             </div>
           )}
 

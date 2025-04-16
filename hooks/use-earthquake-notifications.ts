@@ -4,29 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { playSound } from "@/utils/sound"
 import type { Earthquake } from "@/types/earthquake"
 import { useLocalStorage } from "@/hooks/use-local-storage"
-
-// Update the HIGH_ACTIVITY_THRESHOLD to use the global setting
-// Replace this line:
-// With this:
-const getHighActivityThreshold = (): number => {
-  try {
-    const storedThreshold = localStorage.getItem("earthquakeHighActivityThreshold")
-    if (storedThreshold) {
-      const parsedThreshold = Number.parseInt(storedThreshold, 10)
-      if (!isNaN(parsedThreshold) && parsedThreshold > 0) {
-        return parsedThreshold
-      }
-    }
-
-    // Default value if not found in localStorage
-    return 30
-  } catch (e) {
-    console.error("Error getting high activity threshold:", e)
-    return 30
-  }
-}
-
-const HIGH_ACTIVITY_THRESHOLD = getHighActivityThreshold()
+import { useGlobalSettings } from "./use-global-settings"
 
 export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
   // Store the previously seen earthquakes for comparison
@@ -41,6 +19,9 @@ export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
     "earthquakeMlwNotificationsEnabled",
     true,
   )
+
+  // Get global settings
+  const { globalSettings } = useGlobalSettings()
 
   // Track the last hour's earthquakes for filtering
   const lastHourEarthquakesRef = useRef<Earthquake[]>([])
@@ -84,6 +65,9 @@ export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
       }
     })
 
+    // Get the high activity threshold from global settings
+    const highActivityThreshold = globalSettings.notificationThreshold || 30
+
     // Update the shouldNotify function to respect the MLW notifications setting
     const shouldNotify = (quake: Earthquake) => {
       // For review status changes, check if MLW notifications are enabled and magnitude > 1
@@ -96,8 +80,8 @@ export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
         }
       }
 
-      // If there are more than 30 earthquakes in the last hour (increased from 15)
-      if (lastHourCount > HIGH_ACTIVITY_THRESHOLD) {
+      // If there are more than the threshold earthquakes in the last hour
+      if (lastHourCount > highActivityThreshold) {
         // Only notify for earthquakes with magnitude > 1
         return quake.size > 1
       }
@@ -127,7 +111,7 @@ export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
 
     // Update previous earthquakes for next comparison
     setPreviousEarthquakes(currentEarthquakes)
-  }, [earthquakes, notificationsEnabled, notificationVolume, mlwNotificationsEnabled])
+  }, [earthquakes, notificationsEnabled, notificationVolume, mlwNotificationsEnabled, globalSettings])
 
   // Update the return statement to include the new state
   return {
@@ -136,7 +120,7 @@ export function useEarthquakeNotifications(earthquakes: Earthquake[]) {
     notificationVolume,
     setNotificationVolume,
     recentEarthquakeCount: lastHourEarthquakesRef.current.length,
-    highActivityThreshold: HIGH_ACTIVITY_THRESHOLD,
+    highActivityThreshold: globalSettings.notificationThreshold || 30,
     mlwNotificationsEnabled,
     setMlwNotificationsEnabled,
   }

@@ -16,7 +16,7 @@ export default function ReferencesButton() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-[1000] bg-gray-800 hover:bg-gray-700 text-white rounded-full p-3 shadow-lg flex items-center justify-center"
+        className="fixed bottom-4 right-16 z-[1000] bg-gray-800 hover:bg-gray-700 text-white rounded-full p-3 shadow-lg flex items-center justify-center"
         title="View References"
       >
         <Book className="h-5 w-5" />

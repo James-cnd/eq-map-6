@@ -68,7 +68,8 @@ export default function EarthquakeSidebar({
                       setMagnitudeRange([value[0], magnitudeRange[1]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
               <div>
@@ -85,7 +86,8 @@ export default function EarthquakeSidebar({
                       setMagnitudeRange([magnitudeRange[0], value[0]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
             </div>
@@ -111,7 +113,8 @@ export default function EarthquakeSidebar({
                       setDepthRange([value[0], depthRange[1]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
               <div>
@@ -126,7 +129,8 @@ export default function EarthquakeSidebar({
                       setDepthRange([depthRange[0], value[0]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
             </div>
@@ -154,7 +158,8 @@ export default function EarthquakeSidebar({
                       setTimeFilterRange([value[0], timeFilterRange[1]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
               <div>
@@ -171,7 +176,8 @@ export default function EarthquakeSidebar({
                       setTimeFilterRange([timeFilterRange[0], value[0]])
                     }
                   }}
-                  className="py-2"
+                  className="py-4" // Increased padding for better touch target
+                  style={{ touchAction: "none" }} // Prevent scrolling while using slider
                 />
               </div>
             </div>
@@ -194,7 +200,10 @@ export default function EarthquakeSidebar({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-400 mt-1">Filter earthquakes by volcanic/seismic zone</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Filter earthquakes by volcanic/seismic zone
+              {zoneFilter !== "all" && " (highlighted on map)"}
+            </p>
           </div>
         </div>
       </div>
@@ -220,22 +229,24 @@ export default function EarthquakeSidebar({
         {earthquakes.length === 0 ? (
           <p className="text-sm text-gray-400 py-4">No earthquakes match your filters</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {earthquakes.map((quake, index) => {
               const quakeDate = new Date(quake.timestamp)
               const isNewest = index === 0 // First earthquake is the newest
+              const isManuallyReviewed = quake.review === "mlw"
 
               return (
                 <div
                   key={quake.id}
-                  className={`border border-gray-700 rounded-lg p-2 hover:bg-gray-800 cursor-pointer transition-colors text-sm ${
+                  className={`border border-gray-700 rounded-lg p-3 hover:bg-gray-800 cursor-pointer transition-colors text-sm ${
                     isNewest ? "border-red-500" : ""
-                  }`}
+                  } touch-action-manipulation`}
                   onClick={() => onSelectEarthquake(quake)}
+                  style={{ minHeight: "60px" }} // Ensure touch target is large enough
                 >
                   <div className="flex items-start justify-between">
                     <div className="truncate">
-                      <p className="font-medium truncate text-white">
+                      <p className={`font-medium truncate text-white ${isManuallyReviewed ? "font-bold" : ""}`}>
                         {isNewest && (
                           <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-1 animate-pulse"></span>
                         )}
@@ -250,18 +261,44 @@ export default function EarthquakeSidebar({
                             {quake.depth.toFixed(1)} km
                           </span>
                           {quake.review && (
-                            <span className="text-xs px-1 bg-gray-800 rounded text-gray-400">{quake.review}</span>
+                            <span
+                              className={`text-xs px-1 rounded ${
+                                isManuallyReviewed ? "bg-black text-white font-bold" : "bg-gray-800 text-gray-400"
+                              }`}
+                            >
+                              {quake.review}
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
                     <div
-                      className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs shrink-0 ml-1"
-                      style={{
-                        backgroundColor: getColorForMagnitude(quake.size),
-                      }}
+                      className="relative flex items-center justify-center"
+                      style={{ width: "30px", height: "30px" }}
                     >
-                      {quake.size.toFixed(1)}
+                      {isManuallyReviewed && (
+                        <div
+                          className="absolute rounded-full bg-black"
+                          style={{
+                            width: "30px",
+                            height: "30px",
+                            transform: "scale(1.3)",
+                            top: "0",
+                            left: "0",
+                            zIndex: 0,
+                          }}
+                        ></div>
+                      )}
+                      <div
+                        className="absolute rounded-full flex items-center justify-center text-white font-bold text-xs z-10"
+                        style={{
+                          backgroundColor: getColorForMagnitude(quake.size),
+                          width: "30px",
+                          height: "30px",
+                        }}
+                      >
+                        {quake.size.toFixed(1)}
+                      </div>
                     </div>
                   </div>
                 </div>

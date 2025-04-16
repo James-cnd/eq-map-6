@@ -15,7 +15,7 @@ export default function WelcomeMessage({ onClose }: WelcomeMessageProps) {
     content: string
     version: number
   }>("earthquakeWelcomeMessage", {
-    title: "Welcome to Icelandic Earthquake Monitor",
+    title: "Welcome to Gosvörður",
     content:
       "Track real-time seismic activity across Iceland. Use the controls at the bottom of the screen to filter earthquakes and access additional information.",
     version: 1,
@@ -23,6 +23,29 @@ export default function WelcomeMessage({ onClose }: WelcomeMessageProps) {
 
   // Create a local state to ensure re-rendering when the message changes
   const [welcomeMessage, setWelcomeMessage] = useState(storedMessage)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch welcome message from the API
+  useEffect(() => {
+    const fetchWelcomeMessage = async () => {
+      try {
+        const response = await fetch("/api/settings/welcome")
+        if (response.ok) {
+          const { data } = await response.json()
+          if (data) {
+            setStoredMessage(data)
+            setWelcomeMessage(data)
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching welcome message:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchWelcomeMessage()
+  }, [])
 
   // Listen for welcome message changes
   useEffect(() => {
@@ -43,6 +66,10 @@ export default function WelcomeMessage({ onClose }: WelcomeMessageProps) {
   useEffect(() => {
     setWelcomeMessage(storedMessage)
   }, [storedMessage])
+
+  if (isLoading) {
+    return null
+  }
 
   return (
     <div className="fixed top-16 right-4 z-[1003] max-w-sm">

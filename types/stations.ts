@@ -26,55 +26,8 @@ export interface CustomGpsStation {
   alt?: number // Altitude
 }
 
-// Seismic stations (SIL network)
-export const SEISMIC_STATIONS: Station[] = [
-  {
-    id: "RBDCF",
-    name: "RBDCF",
-    type: "seismic",
-    coordinates: [63.8721, -22.1833],
-    description: "Seismic station near Reykjanes",
-    short: "RBDCF",
-    alt: 100,
-  },
-  {
-    id: "R135F",
-    name: "R135F",
-    type: "seismic",
-    coordinates: [63.895, -22.4167],
-    description: "Seismic station in Reykjanes Peninsula",
-    short: "R135F",
-    alt: 120,
-  },
-  {
-    id: "R977A",
-    name: "R977A",
-    type: "seismic",
-    coordinates: [63.9167, -22.3333],
-    description: "Seismic station monitoring Svartsengi area",
-    short: "R977A",
-    alt: 110,
-  },
-  // Additional stations
-  {
-    id: "REYK",
-    name: "REYK",
-    type: "seismic",
-    coordinates: [64.1383, -21.9033],
-    description: "Reykjavík station",
-    short: "REYK",
-    alt: 93,
-  },
-  {
-    id: "GRIV",
-    name: "GRIV",
-    type: "seismic",
-    coordinates: [64.5483, -17.38],
-    description: "Grímsfjall station",
-    short: "GRIV",
-    alt: 1790,
-  },
-]
+// Remove all seismic stations from the SEISMIC_STATIONS array
+export const SEISMIC_STATIONS: Station[] = []
 
 // GPS stations based on the provided data
 export const GPS_STATIONS: Station[] = [

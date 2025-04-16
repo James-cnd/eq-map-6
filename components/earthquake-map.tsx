@@ -8,15 +8,25 @@ import { EarthquakeDetails } from "@/components/earthquake-details"
 import type { Earthquake } from "@/types/earthquake"
 import { ICELAND_ZONES } from "@/types/zones"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Settings, Globe, BookOpen, Activity, Coffee, Pencil, Bell, Youtube } from "lucide-react"
+import {
+  AlertCircle,
+  Settings,
+  Globe,
+  BookOpen,
+  Activity,
+  Coffee,
+  Pencil,
+  Bell,
+  Youtube,
+  RefreshCw,
+} from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import EarthquakeSidebar from "@/components/earthquake-sidebar"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { DraggablePanel } from "@/components/draggable-panel"
-
-// Replace static imports with dynamic imports for heavy components
+import { useGlobalData } from "@/hooks/use-global-data"
 
 // Dynamically import heavy components
 const FactsPanel = dynamic(() => import("@/components/facts-panel"), {
@@ -44,7 +54,8 @@ const YoutubePlayer = dynamic(() => import("@/components/youtube-player"), {
   loading: () => <div className="p-4 bg-gray-900 text-white">Loading YouTube player...</div>,
 })
 
-// The AdminDrawPanel is already dynamically imported
+// Make sure the import for AdminInterface is correct
+import AdminInterface from "@/components/admin-interface"
 import NotificationSettings from "@/components/notification-settings"
 import SeismometerDisplay from "@/components/seismometer-display"
 
@@ -55,12 +66,6 @@ import { VolcanoIcon } from "@/components/icons/volcano-icon"
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css"
-// We'll load Leaflet.Draw CSS dynamically in the AdminDrawPanel component
-
-// Import the AdminDrawPanel component
-const AdminDrawPanel = dynamic(() => import("@/components/admin-draw-panel"), {
-  ssr: false,
-})
 
 // Dynamically import Leaflet with no SSR to avoid window is not defined errors
 // Use a key to force remount when needed
@@ -72,6 +77,20 @@ const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
 // Add this import at the top of the file
 import WelcomeMessage from "@/components/welcome-message"
 
+// Define the map settings interface
+interface MapSettings {
+  showSeismicStations: boolean
+  showGpsStations: boolean
+  showSeismometers: boolean
+  showLavaFlows: boolean
+  showBerms: boolean
+  showFissures: boolean
+  showEarthquakes: boolean
+  showZoneHighlighting: boolean
+  enableZoneTransitions: boolean
+  showHotspotButtons: boolean
+}
+
 // Make sure the component is exported as default
 export default function EarthquakeMap() {
   // Rest of the component remains the same
@@ -80,7 +99,7 @@ export default function EarthquakeMap() {
   const [depthRange, setDepthRange] = useLocalStorage<[number, number]>("earthquakeDepthRange", [0, 25])
   const [timeFilterRange, setTimeFilterRange] = useLocalStorage<[number, number]>("earthquakeTimeFilterRange", [0, 24])
   const [zoneFilter, setZoneFilter] = useLocalStorage("earthquakeZoneFilter", "all")
-  const { earthquakes, isLoading, error, lastUpdated } = useEarthquakes()
+  const { earthquakes, isLoading, error, lastUpdated, isMockData } = useEarthquakes()
   const [selectedSeismometer, setSelectedSeismometer] = useState<CustomSeismometer | null>(null)
   const [mapKey, setMapKey] = useState(0)
 
@@ -98,13 +117,22 @@ export default function EarthquakeMap() {
   const [showRaspberryShakeInfo, setShowRaspberryShakeInfo] = useState(false)
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
 
-  // Map feature toggles - GPS stations are always visible
-  const [showSeismicStations] = useLocalStorage("earthquakeShowSeismicStations", false)
-  const [showGpsStations] = useLocalStorage("earthquakeShowGpsStations", true) // Default to true
-  const [showSeismometers] = useLocalStorage("earthquakeShowSeismometers", false)
-  const [showLavaFlows] = useLocalStorage("earthquakeShowLavaFlows", true)
-  const [showBerms] = useLocalStorage("earthquakeShowBerms", true)
-  const [showEarthquakes] = useLocalStorage("earthquakeShowEarthquakes", true)
+  // Add a new state variable for connection status after the other state declarations
+  const [isConnected, setIsConnected] = useState(true)
+
+  // Get global map settings
+  const { data: mapSettings } = useGlobalData<MapSettings>("map_settings", "earthquakeMapSettings", {
+    showSeismicStations: false,
+    showGpsStations: true,
+    showSeismometers: false,
+    showLavaFlows: true,
+    showBerms: true,
+    showFissures: true,
+    showEarthquakes: true,
+    showZoneHighlighting: true,
+    enableZoneTransitions: true,
+    showHotspotButtons: true,
+  })
 
   // Refs for Leaflet map and L
   const leafletMapRef = useRef<{ map: any; L: any } | null>(null)
@@ -177,6 +205,30 @@ export default function EarthquakeMap() {
 
   // Detect mobile view
   const [isMobile, setIsMobile] = useState(false)
+
+  // Add a useEffect to check data freshness every 10 seconds
+  useEffect(() => {
+    const checkConnection = () => {
+      // If lastUpdated is null, we haven't received data yet
+      if (!lastUpdated) {
+        setIsConnected(false)
+        return
+      }
+
+      // Check if data is more than 2 minutes old
+      const twoMinutesAgo = Date.now() - 2 * 60 * 1000
+      setIsConnected(lastUpdated > twoMinutesAgo)
+    }
+
+    // Check connection immediately
+    checkConnection()
+
+    // Set up interval to check connection every 10 seconds
+    const interval = setInterval(checkConnection, 10000)
+
+    // Clean up interval on unmount
+    return () => clearInterval(interval)
+  }, [lastUpdated])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -277,6 +329,24 @@ export default function EarthquakeMap() {
     )
   }
 
+  // Show a more prominent error message when there's no data
+  if (error && earthquakes.length === 0) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-gray-900 text-white p-4">
+        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Unable to Load Earthquake Data</h2>
+        <p className="text-lg mb-6 text-center max-w-md">{error.message}</p>
+        <p className="text-sm text-gray-400 mb-8 text-center max-w-md">
+          Please check your internet connection and try again later.
+        </p>
+        <Button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Page
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="relative h-full w-full">
       {/* Map takes full screen */}
@@ -286,13 +356,13 @@ export default function EarthquakeMap() {
           earthquakes={filteredEarthquakes}
           onSelectEarthquake={setSelectedEarthquake}
           selectedEarthquake={selectedEarthquake}
-          selectedZone={ICELAND_ZONES.find((z) => z.id === selectedZone)}
-          showSeismicStations={showSeismicStations}
-          showGpsStations={showGpsStations}
-          showSeismometers={showSeismometers}
-          showLavaFlows={showLavaFlows}
-          showBerms={showBerms}
-          showEarthquakes={showEarthquakes}
+          selectedZone={ICELAND_ZONES.find((z) => z.id === zoneFilter)}
+          showSeismicStations={mapSettings.showSeismicStations}
+          showGpsStations={mapSettings.showGpsStations}
+          showSeismometers={mapSettings.showSeismometers}
+          showLavaFlows={mapSettings.showLavaFlows}
+          showBerms={mapSettings.showBerms}
+          showEarthquakes={mapSettings.showEarthquakes}
           onMapReference={handleMapReference}
           onSelectSeismometer={handleSelectSeismometer}
         />
@@ -308,9 +378,15 @@ export default function EarthquakeMap() {
         </div>
       )}
 
-      {/* App title overlay */}
+      {/* App title overlay with connection status */}
       <div className="fixed top-4 left-4 z-[1001] bg-gray-900/80 text-white p-2 rounded-lg shadow-lg">
-        <h1 className="text-lg font-bold">Icelandic Earthquake Monitor</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold">Gosvörður</h1>
+          <div
+            className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"} transition-colors duration-300`}
+            title={isConnected ? "Connected" : "No data updates in the last 2 minutes"}
+          />
+        </div>
       </div>
 
       {/* Admin button - positioned in the top right */}
@@ -360,11 +436,11 @@ export default function EarthquakeMap() {
         </Button>
       </div>
 
-      {/* Control buttons - with updated icons */}
-      <div className="fixed bottom-4 left-4 z-[1001] flex gap-2">
+      {/* Control buttons - with updated icons and responsive layout */}
+      <div className="fixed bottom-4 left-4 z-[1001] flex flex-wrap gap-2 max-w-[calc(100vw-32px)]">
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showSidebar && activePanel === "list" ? "ring-2 ring-white" : ""
           }`}
@@ -373,11 +449,12 @@ export default function EarthquakeMap() {
           aria-label="Recent Earthquakes"
         >
           <Activity className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Quakes</span>}
         </Button>
 
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showSidebar && activePanel === "settings" ? "ring-2 ring-white" : ""
           }`}
@@ -386,11 +463,12 @@ export default function EarthquakeMap() {
           aria-label="Filter Settings"
         >
           <Settings className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Filter</span>}
         </Button>
 
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showEruptionInfo ? "ring-2 ring-white" : ""
           }`}
@@ -399,11 +477,12 @@ export default function EarthquakeMap() {
           aria-label="Eruption Information"
         >
           <VolcanoIcon className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Eruptions</span>}
         </Button>
 
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showYoutubePlayer ? "ring-2 ring-white" : ""
           }`}
@@ -412,11 +491,12 @@ export default function EarthquakeMap() {
           aria-label="Live Feed"
         >
           <Youtube className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Live</span>}
         </Button>
 
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showFactsPanel ? "ring-2 ring-white" : ""
           }`}
@@ -425,12 +505,13 @@ export default function EarthquakeMap() {
           aria-label="Earthquake Facts"
         >
           <BookOpen className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Facts</span>}
         </Button>
 
-        {/* Notification button added here */}
+        {/* Notification button */}
         <Button
           variant="outline"
-          size="icon"
+          size={isMobile ? "default" : "icon"}
           className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
             showNotificationSettings ? "ring-2 ring-white" : ""
           }`}
@@ -439,6 +520,7 @@ export default function EarthquakeMap() {
           aria-label="Notification Settings"
         >
           <Bell className="h-5 w-5" />
+          {isMobile && <span className="ml-2">Alerts</span>}
           {recentEarthquakeCount > highActivityThreshold && (
             <span className="absolute -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3"></span>
           )}
@@ -537,26 +619,19 @@ export default function EarthquakeMap() {
         </Modal>
       )}
 
-      {/* Admin Draw Panel - now as a draggable panel */}
+      {/* Admin Interface - using our new component */}
       {showAdminPanel && leafletMapRef.current && leafletMapRef.current.map && leafletMapRef.current.L && (
-        <DraggablePanel
+        <AdminInterface
+          map={leafletMapRef.current.map}
+          L={leafletMapRef.current.L}
           onClose={() => setShowAdminPanel(false)}
-          title="Admin Panel"
-          initialPosition={{ x: 20, y: 60 }}
-          className="w-[450px] h-[600px] max-w-[90vw] max-h-[90vh] admin-panel resize-panel"
-        >
-          <AdminDrawPanel
-            map={leafletMapRef.current.map}
-            L={leafletMapRef.current.L}
-            onClose={() => setShowAdminPanel(false)}
-          />
-        </DraggablePanel>
+        />
       )}
 
       {/* Seismometer Display - draggable panel */}
       {selectedSeismometer && (
         <DraggablePanel title={`${selectedSeismometer.name} Seismometer`} onClose={() => setSelectedSeismometer(null)}>
-          <SeismometerDisplay seismometer={selectedSeismometer} />
+          <SeismometerDisplay seismometer={selectedSeismometer} onClose={() => setSelectedSeismometer(null)} />
         </DraggablePanel>
       )}
 

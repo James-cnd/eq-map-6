@@ -110,6 +110,8 @@ export default function EarthquakeList() {
               {filteredEarthquakes.map((quake) => {
                 // Get volcanic system information
                 const volcanicSystem = getVolcanicSystem(quake.latitude, quake.longitude)
+                // Check if earthquake is manually reviewed
+                const isManuallyReviewed = quake.review === "mlw"
 
                 return (
                   <div
@@ -144,12 +146,32 @@ export default function EarthquakeList() {
                         </p>
                       </div>
                       <div
-                        className="flex items-center justify-center w-10 h-10 rounded-full text-white font-bold"
-                        style={{
-                          backgroundColor: getColorForMagnitude(quake.size),
-                        }}
+                        className="relative flex items-center justify-center"
+                        style={{ width: "30px", height: "30px", transform: "scale(0.75)" }}
                       >
-                        {quake.size.toFixed(1)}
+                        {isManuallyReviewed && (
+                          <div
+                            className="absolute rounded-full bg-black"
+                            style={{
+                              width: "30px",
+                              height: "30px",
+                              transform: "scale(1.33)",
+                              top: "0",
+                              left: "0",
+                              zIndex: 0,
+                            }}
+                          ></div>
+                        )}
+                        <div
+                          className="absolute rounded-full flex items-center justify-center text-white font-bold text-xs z-10"
+                          style={{
+                            backgroundColor: getColorForMagnitude(quake.size),
+                            width: "30px",
+                            height: "30px",
+                          }}
+                        >
+                          {quake.size.toFixed(1)}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -168,6 +190,7 @@ export default function EarthquakeList() {
 }
 
 function getColorForMagnitude(magnitude: number): string {
+  if (magnitude < 0) return "#3498DB" // Blue for negative magnitudes
   if (magnitude < 1) return "#2ECC71" // Green
   if (magnitude < 2) return "#F1C40F" // Yellow
   if (magnitude < 3) return "#E67E22" // Orange

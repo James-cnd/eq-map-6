@@ -1,43 +1,89 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Maximize2, Minimize2, Move, ChevronDown } from "lucide-react"
+import { X, Maximize2, Minimize2, Move, Play, AlertTriangle, Edit, Check } from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
-
-interface YouTubeFeed {
-  id: string
-  name: string
-  videoId: string
-  isDefault?: boolean
-}
+import { Input } from "@/components/ui/input"
 
 interface YoutubePlayerProps {
   defaultVideoId?: string
   onClose?: () => void
 }
 
-export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose }: YoutubePlayerProps) {
+// Add a QuickEdit component for changing the video ID
+function QuickEdit({
+  videoId,
+  onSave,
+  onCancel,
+}: {
+  videoId: string
+  onSave: (newId: string) => void
+  onCancel: () => void
+}) {
+  const [newVideoId, setNewVideoId] = useState(videoId)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newVideoId.trim()) {
+      // Extract video ID if a full URL was pasted
+      const extractedId = extractVideoId(newVideoId)
+      onSave(extractedId || newVideoId)
+    }
+  }
+
+  // Function to extract YouTube video ID from various URL formats
+  const extractVideoId = (input: string): string | null => {
+    // Handle YouTube URLs
+    const urlRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i
+    const match = input.match(urlRegex)
+
+    if (match && match[1]) {
+      return match[1]
+    }
+
+    // Handle direct video IDs (11 characters)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+      return input
+    }
+
+    return null
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-2 bg-gray-800 border-t border-gray-700">
+      <Input
+        value={newVideoId}
+        onChange={(e) => setNewVideoId(e.target.value)}
+        placeholder="YouTube video ID or URL"
+        className="flex-1 h-8 bg-gray-700 border-gray-600 text-white text-sm"
+      />
+      <Button type="submit" size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700">
+        <Check className="h-4 w-4" />
+      </Button>
+      <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={onCancel}>
+        <X className="h-4 w-4" />
+      </Button>
+    </form>
+  )
+}
+
+export default function YoutubePlayer({ defaultVideoId = "faH3xrKyP_o", onClose }: YoutubePlayerProps) {
   // Size states: small, medium, large
   const [size, setSize] = useLocalStorage("earthquakeYoutubeSize", "medium")
-  const [videoId, setVideoId] = useLocalStorage("earthquakeYoutubeVideoId", defaultVideoId)
-  const [customVideoId, setCustomVideoId] = useState("")
-  const [showInput, setShowInput] = useState(false)
-  const [showFeedSelector, setShowFeedSelector] = useState(false)
-  const [feeds] = useLocalStorage<YouTubeFeed[]>("earthquakeYoutubeFeeds", [
-    { id: "afar", name: "AFAR Multicam", videoId: "xDRWMU9JzKA", isDefault: true },
-    { id: "ruv", name: "RÚV Geldingadalir", videoId: "BA-_4pLG8Y0" },
-    { id: "reykjanes", name: "Reykjanes Peninsula", videoId: "PnxAoXLfPpY" },
-  ])
+  const [storedVideoId, setStoredVideoId] = useLocalStorage("earthquakeYoutubeVideoId", defaultVideoId)
+  const [videoId, setVideoId] = useState<string>(storedVideoId)
+  const playerRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [showQuickEdit, setShowQuickEdit] = useState(false)
 
   // Position state for dragging
   const [position, setPosition] = useLocalStorage("earthquakeYoutubePosition", { x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const playerRef = useRef<HTMLDivElement>(null)
-  const feedSelectorRef = useRef<HTMLDivElement>(null)
 
   // Initialize position to center of screen on first load
   useEffect(() => {
@@ -58,11 +104,16 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
       // Ensure player stays within viewport after resize
       if (playerRef.current) {
         const rect = playerRef.current.getBoundingClientRect()
-        const newX = Math.min(position.x, window.innerWidth - rect.width)
-        const newY = Math.min(position.y, window.innerHeight - rect.height)
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+        const newX = position.x
+        const newY = position.y
 
-        if (newX !== position.x || newY !== position.y) {
-          setPosition({ x: newX, y: newY })
+        const newXBounded = Math.max(0, Math.min(newX, viewportWidth - rect.width))
+        const newYBounded = Math.max(0, Math.min(newY, viewportHeight - rect.height))
+
+        if (newXBounded !== position.x || newYBounded !== position.y) {
+          setPosition({ x: newXBounded, y: newYBounded })
         }
       }
     }
@@ -122,47 +173,6 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
     }
   }, [isDragging, dragOffset, setPosition])
 
-  // Close feed selector when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (feedSelectorRef.current && !feedSelectorRef.current.contains(e.target as Node)) {
-        setShowFeedSelector(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  // Extract video ID from URL or ID string
-  const extractVideoId = (input: string) => {
-    // Handle YouTube URLs
-    const urlRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i
-    const match = input.match(urlRegex)
-
-    if (match && match[1]) {
-      return match[1]
-    }
-
-    // Handle direct video IDs (11 characters)
-    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
-      return input
-    }
-
-    return null
-  }
-
-  const handleSetVideo = () => {
-    const newVideoId = extractVideoId(customVideoId)
-    if (newVideoId) {
-      setVideoId(newVideoId)
-      setCustomVideoId("")
-      setShowInput(false)
-    } else {
-      alert("Please enter a valid YouTube video ID or URL")
-    }
-  }
-
   // Helper function to get width based on size
   const getWidthForSize = (size: string): number => {
     switch (size) {
@@ -196,17 +206,47 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
     else setSize("small")
   }
 
-  // Get current feed name
-  const getCurrentFeedName = () => {
-    const currentFeed = feeds.find((feed) => feed.videoId === videoId)
-    return currentFeed?.name || "Custom Feed"
+  // Handle video ID change
+  const handleVideoIdChange = (newId: string) => {
+    // Validate the new video ID
+    if (!isValidYoutubeId(newId)) {
+      setVideoError("Invalid YouTube video ID. Please check the ID and try again.")
+      return
+    }
+
+    setVideoId(newId)
+    setStoredVideoId(newId)
+    setIsPlaying(true)
+    setVideoError(null)
+    setShowQuickEdit(false)
   }
 
-  // Switch to a different feed
-  const switchToFeed = (feed: YouTubeFeed) => {
-    setVideoId(feed.videoId)
-    setShowFeedSelector(false)
+  // Function to validate YouTube video ID
+  const isValidYoutubeId = (id: string): boolean => {
+    return /^[a-zA-Z0-9_-]{11}$/.test(id)
   }
+
+  // Construct the iframe source URL with proper parameters
+  const iframeSrc = isPlaying ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1` : ""
+  console.log("YouTube iframe src:", iframeSrc)
+
+  // Function to handle video load error
+  const handleVideoError = (event: React.SyntheticEvent<HTMLIFrameElement, Event>) => {
+    const iframe = event.target as HTMLIFrameElement
+    const src = iframe.src
+
+    if (src.includes("error=150")) {
+      setVideoError("This video is unavailable. Please try a different feed or check your browser settings.")
+    } else if (src.includes("sign-in")) {
+      setVideoError("This live stream requires you to sign in to YouTube to watch.")
+    } else {
+      setVideoError("This video is unavailable to play.")
+    }
+    setIsPlaying(false)
+  }
+
+  // Calculate extra height for my ability to quickly edit
+  const extraHeight = showQuickEdit ? 44 : 0
 
   return (
     <div
@@ -216,7 +256,7 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
         left: `${position.x}px`,
         top: `${position.y}px`,
         width: `${getWidthForSize(size)}px`,
-        height: `${getHeightForSize(size) + 40}px`, // Add header height
+        height: `${getHeightForSize(size) + 40 + extraHeight}px`, // Add header height + QuickEdit height if visible
         cursor: isDragging ? "grabbing" : "auto",
         pointerEvents: "auto",
       }}
@@ -227,35 +267,18 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
       >
         <div className="flex items-center gap-2">
           <Move className="h-4 w-4 text-gray-400" />
-          <div className="relative">
-            <button
-              className="text-sm font-medium text-white flex items-center gap-1"
-              onClick={() => setShowFeedSelector(!showFeedSelector)}
-            >
-              {getCurrentFeedName()}
-              <ChevronDown className="h-3 w-3" />
-            </button>
-
-            {showFeedSelector && (
-              <div
-                ref={feedSelectorRef}
-                className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-10 w-48"
-              >
-                {feeds.map((feed) => (
-                  <button
-                    key={feed.id}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700 flex items-center justify-between"
-                    onClick={() => switchToFeed(feed)}
-                  >
-                    <span>{feed.name}</span>
-                    {feed.videoId === videoId && <span className="h-2 w-2 rounded-full bg-green-500"></span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <div className="text-sm font-medium text-white">Live Feed</div>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-gray-400 hover:text-white"
+            onClick={() => setShowQuickEdit(!showQuickEdit)}
+            title="Change video"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -273,46 +296,52 @@ export default function YoutubePlayer({ defaultVideoId = "xDRWMU9JzKA", onClose 
         </div>
       </div>
 
-      <div className="relative w-full" style={{ height: `${getHeightForSize(size)}px` }}>
-        <iframe
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`}
-          title="YouTube video player"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="w-full h-full"
-        ></iframe>
-      </div>
+      {showQuickEdit && (
+        <QuickEdit videoId={videoId} onSave={handleVideoIdChange} onCancel={() => setShowQuickEdit(false)} />
+      )}
 
-      <div className="absolute bottom-2 left-2 right-2 flex gap-2">
-        {showInput ? (
-          <div className="flex w-full gap-1">
-            <input
-              type="text"
-              value={customVideoId}
-              onChange={(e) => setCustomVideoId(e.target.value)}
-              placeholder="Enter YouTube URL or ID"
-              className="flex-1 px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white"
-            />
-            <Button size="sm" className="py-1 h-auto text-xs bg-blue-600 hover:bg-blue-700" onClick={handleSetVideo}>
-              Set
-            </Button>
+      <div className="relative w-full" style={{ height: `${getHeightForSize(size)}px` }}>
+        {videoError ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-black text-white text-center p-4">
+            <div className="space-y-2">
+              <AlertTriangle className="h-6 w-6 mx-auto text-red-500" />
+              <p className="font-bold">Video Unavailable</p>
+              <p className="text-sm">{videoError}</p>
+              {videoError.includes("sign in") && (
+                <p className="text-sm">You may need to sign in to YouTube in a separate tab.</p>
+              )}
+              <Button
+                onClick={() => setShowQuickEdit(true)}
+                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Change Video
+              </Button>
+            </div>
+          </div>
+        ) : !isPlaying ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
             <Button
-              size="sm"
-              variant="ghost"
-              className="py-1 h-auto text-xs text-gray-300"
-              onClick={() => setShowInput(false)}
+              onClick={() => {
+                setIsPlaying(true)
+                setVideoError(null) // Clear any previous errors
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full w-16 h-16 flex items-center justify-center"
             >
-              Cancel
+              <Play className="h-8 w-8" />
             </Button>
+            <div className="absolute bottom-4 text-white text-sm">Click to play YouTube live feed</div>
           </div>
         ) : (
-          <Button
-            size="sm"
-            className="text-xs bg-gray-800 hover:bg-gray-700 text-white"
-            onClick={() => setShowInput(true)}
-          >
-            Use Custom URL
-          </Button>
+          <iframe
+            ref={iframeRef}
+            src={iframeSrc}
+            title="YouTube video player"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full"
+            onError={handleVideoError}
+          ></iframe>
         )}
       </div>
     </div>
