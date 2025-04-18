@@ -6,13 +6,12 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { Trash2, Save, MapPin, ExternalLink } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { EXTENDED_GPS_STATIONS } from "@/data/gps-stations-extended"
-import type { GpsStation } from "@/types/stations"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface GpsStationsEditorProps {
   map: any
@@ -20,12 +19,6 @@ interface GpsStationsEditorProps {
 }
 
 export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
-  const [stations, setStations] = useLocalStorage<GpsStation[]>("gpsStations", [])
-  const [placingMode, setPlacingMode] = useState(false)
-  const [currentStation, setCurrentStation] = useState<GpsStation | null>(null)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [position, setPosition] = useState<[number, number] | null>(null)
   const [customStations, setCustomStations] = useLocalStorage<any[]>("earthquakeCustomGpsStations", [])
   const [gpsStationLinks, setGpsStationLinks] = useLocalStorage<Record<string, string>>("earthquakeGpsStationLinks", {})
   const [isSelectingLocation, setIsSelectingLocation] = useState(false)
@@ -36,25 +29,11 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
   const [stationName, setStationName] = useState("")
   const [stationLatitude, setStationLatitude] = useState("")
   const [stationLongitude, setStationLongitude] = useState("")
-  const [stationUrl, setStationUrl] = useState("")
   const [stationDescription, setStationDescription] = useState("")
+  const [stationUrl, setStationUrl] = useState("")
 
   // Reference for the location marker
   const locationMarkerRef = React.useRef<any>(null)
-
-  // Marker state
-  const [marker, setMarker] = useState<any>(null)
-
-  useEffect(() => {
-    if (!map) return
-
-    // Cleanup
-    return () => {
-      if (map && marker) {
-        map.removeLayer(marker)
-      }
-    }
-  }, [map, marker])
 
   // Load station data if editing
   useEffect(() => {
@@ -123,38 +102,6 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
     }
   }, [map, L, isSelectingLocation])
 
-  const startPlacing = () => {
-    if (!map) return
-
-    setPlacingMode(true)
-    setPosition(null)
-    if (marker) {
-      map.removeLayer(marker)
-      setMarker(null)
-    }
-
-    // Add click handler to map
-    map.on("click", handleMapClickForNewStations)
-  }
-
-  const handleMapClickForNewStations = (e: any) => {
-    const { lat, lng } = e.latlng
-    setPosition([lat, lng])
-
-    // Remove existing marker if any
-    if (marker) {
-      map.removeLayer(marker)
-    }
-
-    // Create new marker
-    const newMarker = L.marker([lat, lng]).addTo(map)
-    setMarker(newMarker)
-
-    // Remove click handler
-    map.off("click", handleMapClickForNewStations)
-    setPlacingMode(false)
-  }
-
   // Start location selection
   const startLocationSelection = () => {
     if (locationMarkerRef.current) {
@@ -208,21 +155,6 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
     resetForm()
   }
 
-  const saveNewStation = () => {
-    if (!position || !name) return
-
-    const newStation: GpsStation = {
-      id: Date.now().toString(),
-      name,
-      description,
-      position,
-      data: [],
-    }
-
-    setStations([...stations, newStation])
-    resetFormNewStation()
-  }
-
   // Delete station
   const deleteStation = (id: string) => {
     setCustomStations(customStations.filter((s) => s.id !== id))
@@ -237,10 +169,6 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
     })
   }
 
-  const deleteNewStation = (id: string) => {
-    setStations(stations.filter((station) => station.id !== id))
-  }
-
   // Reset form
   const resetForm = () => {
     setSelectedStationId(null)
@@ -253,21 +181,6 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
     if (locationMarkerRef.current) {
       map.removeLayer(locationMarkerRef.current)
       locationMarkerRef.current = null
-    }
-  }
-
-  const resetFormNewStation = () => {
-    setCurrentStation(null)
-    setName("")
-    setDescription("")
-    setPosition(null)
-    if (marker) {
-      map.removeLayer(marker)
-      setMarker(null)
-    }
-    setPlacingMode(false)
-    if (map) {
-      map.off("click", handleMapClickForNewStations)
     }
   }
 
@@ -543,90 +456,6 @@ export default function GpsStationsEditor({ map, L }: GpsStationsEditorProps) {
             })}
           </div>
         )}
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold">New GPS Stations Editor</h2>
-
-        <div className="space-y-4 p-4 bg-gray-800 rounded-lg">
-          <div>
-            <Label htmlFor="name">Station Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter station name"
-              className="bg-gray-700"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter station description"
-              className="bg-gray-700"
-            />
-          </div>
-
-          <div>
-            <Label>Position</Label>
-            {position ? (
-              <div className="p-2 bg-gray-700 rounded text-sm">
-                Lat: {position[0].toFixed(6)}, Lng: {position[1].toFixed(6)}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">Click "Place on Map" to set the position</p>
-            )}
-          </div>
-
-          <div className="flex space-x-2">
-            {!placingMode ? (
-              <Button onClick={startPlacing} variant="outline">
-                Place on Map
-              </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  setPlacingMode(false)
-                  map.off("click", handleMapClickForNewStations)
-                }}
-                variant="destructive"
-              >
-                Cancel Placement
-              </Button>
-            )}
-
-            {position && (
-              <Button onClick={saveNewStation} variant="default">
-                Save Station
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Saved GPS Stations</h3>
-          {stations.length === 0 ? (
-            <p className="text-gray-400">No GPS stations added yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {stations.map((station) => (
-                <div key={station.id} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                  <div>
-                    <span className="font-medium">{station.name}</span>
-                    {station.description && <span className="ml-2 text-sm text-gray-400">{station.description}</span>}
-                  </div>
-                  <Button onClick={() => deleteNewStation(station.id)} variant="destructive" size="sm">
-                    Delete
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

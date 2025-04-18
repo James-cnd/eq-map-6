@@ -875,3 +875,74 @@ input[type="range"] {
 .touch-action-manipulation {
   touch-action: manipulation;
 }
+
+/* Add these styles for better mobile experience */
+
+/* Make popups more touch-friendly */
+.mobile-friendly-popup .leaflet-popup-content-wrapper {
+  padding: 12px !important;
+}
+
+.mobile-friendly-popup .leaflet-popup-close-button {
+  padding: 8px !important;
+  font-size: 20px !important;
+}
+
+/* Improve tooltip visibility on mobile */
+.leaflet-tooltip-custom {
+  padding: 10px !important;
+  font-size: 14px !important;
+}
+
+/* Ensure GPS stations are visible and tappable on mobile */
+@media (max-width: 768px) {
+  .gps-station-marker {
+    z-index: 2500 !important;
+  }
+
+  /* Increase the size of the touch target */
+  .gps-station-marker:after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    z-index: -1;
+  }
+
+  /* Make the legend more visible on mobile */
+  .absolute.bottom-20.right-4.z-20 {
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    padding: 10px !important;
+  }
+
+  /* Ensure buttons are large enough for touch */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* iPad-specific adjustments */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .gps-station-marker {
+    z-index: 2500 !important;
+  }
+}
+
+/* Add styles for touch-friendly sliders */
+input[type="range"] {
+  height: 24px; /* Taller for better touch */
+}
+
+/* Ensure the map takes full height */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Add styles for touch-action-manipulation */
+.touch-action-manipulation {
+  touch-action: manipulation;
+}

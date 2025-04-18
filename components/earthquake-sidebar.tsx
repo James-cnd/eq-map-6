@@ -200,10 +200,7 @@ export default function EarthquakeSidebar({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-400 mt-1">
-              Filter earthquakes by volcanic/seismic zone
-              {zoneFilter !== "all" && " (highlighted on map)"}
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Filter earthquakes by volcanic/seismic zone</p>
           </div>
         </div>
       </div>
@@ -233,20 +230,19 @@ export default function EarthquakeSidebar({
             {earthquakes.map((quake, index) => {
               const quakeDate = new Date(quake.timestamp)
               const isNewest = index === 0 // First earthquake is the newest
-              const isManuallyReviewed = quake.review === "mlw"
 
               return (
                 <div
                   key={quake.id}
                   className={`border border-gray-700 rounded-lg p-3 hover:bg-gray-800 cursor-pointer transition-colors text-sm ${
                     isNewest ? "border-red-500" : ""
-                  } touch-action-manipulation`}
+                  } ${quake.review === "mlw" ? "border-black" : ""} touch-action-manipulation`}
                   onClick={() => onSelectEarthquake(quake)}
                   style={{ minHeight: "60px" }} // Ensure touch target is large enough
                 >
                   <div className="flex items-start justify-between">
                     <div className="truncate">
-                      <p className={`font-medium truncate text-white ${isManuallyReviewed ? "font-bold" : ""}`}>
+                      <p className={`font-medium truncate text-white ${quake.review === "mlw" ? "font-bold" : ""}`}>
                         {isNewest && (
                           <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-1 animate-pulse"></span>
                         )}
@@ -263,7 +259,7 @@ export default function EarthquakeSidebar({
                           {quake.review && (
                             <span
                               className={`text-xs px-1 rounded ${
-                                isManuallyReviewed ? "bg-black text-white font-bold" : "bg-gray-800 text-gray-400"
+                                quake.review === "mlw" ? "bg-black text-white font-bold" : "bg-gray-800 text-gray-400"
                               }`}
                             >
                               {quake.review}
@@ -273,32 +269,12 @@ export default function EarthquakeSidebar({
                       </div>
                     </div>
                     <div
-                      className="relative flex items-center justify-center"
-                      style={{ width: "30px", height: "30px" }}
+                      className="flex items-center justify-center w-10 h-10 rounded-full text-white font-bold text-xs shrink-0 ml-1"
+                      style={{
+                        backgroundColor: getColorForMagnitude(quake.size),
+                      }}
                     >
-                      {isManuallyReviewed && (
-                        <div
-                          className="absolute rounded-full bg-black"
-                          style={{
-                            width: "30px",
-                            height: "30px",
-                            transform: "scale(1.3)",
-                            top: "0",
-                            left: "0",
-                            zIndex: 0,
-                          }}
-                        ></div>
-                      )}
-                      <div
-                        className="absolute rounded-full flex items-center justify-center text-white font-bold text-xs z-10"
-                        style={{
-                          backgroundColor: getColorForMagnitude(quake.size),
-                          width: "30px",
-                          height: "30px",
-                        }}
-                      >
-                        {quake.size.toFixed(1)}
-                      </div>
+                      {quake.size.toFixed(1)}
                     </div>
                   </div>
                 </div>

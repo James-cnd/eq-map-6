@@ -19,7 +19,6 @@ import {
   Bell,
   Youtube,
   RefreshCw,
-  Calendar,
 } from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import EarthquakeSidebar from "@/components/earthquake-sidebar"
@@ -55,13 +54,7 @@ const YoutubePlayer = dynamic(() => import("@/components/youtube-player"), {
   loading: () => <div className="p-4 bg-gray-900 text-white">Loading YouTube player...</div>,
 })
 
-// Dynamically import the historical earthquake viewer
-const HistoricalEarthquakeViewer = dynamic(() => import("@/components/historical-earthquake-viewer"), {
-  ssr: false,
-  loading: () => <div className="p-4 bg-gray-900 text-white">Loading historical data...</div>,
-})
-
-// Make sure the import for AdminInterface is correct
+// Import the AdminInterface component
 import AdminInterface from "@/components/admin-interface"
 import NotificationSettings from "@/components/notification-settings"
 import SeismometerDisplay from "@/components/seismometer-display"
@@ -123,9 +116,6 @@ export default function EarthquakeMap() {
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [showRaspberryShakeInfo, setShowRaspberryShakeInfo] = useState(false)
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
-
-  // Add state for historical earthquake viewer
-  const [showHistoricalData, setShowHistoricalData] = useState(false)
 
   // Add a new state variable for connection status after the other state declarations
   const [isConnected, setIsConnected] = useState(true)
@@ -366,7 +356,7 @@ export default function EarthquakeMap() {
           earthquakes={filteredEarthquakes}
           onSelectEarthquake={setSelectedEarthquake}
           selectedEarthquake={selectedEarthquake}
-          selectedZone={ICELAND_ZONES.find((z) => z.id === zoneFilter)}
+          selectedZone={ICELAND_ZONES.find((z) => z.id === selectedZone)}
           showSeismicStations={mapSettings.showSeismicStations}
           showGpsStations={mapSettings.showGpsStations}
           showSeismometers={mapSettings.showSeismometers}
@@ -518,21 +508,6 @@ export default function EarthquakeMap() {
           {isMobile && <span className="ml-2">Facts</span>}
         </Button>
 
-        {/* Historical Data Button */}
-        <Button
-          variant="outline"
-          size={isMobile ? "default" : "icon"}
-          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
-            showHistoricalData ? "ring-2 ring-white" : ""
-          }`}
-          onClick={() => setShowHistoricalData(true)}
-          title="Past Earthquake Data"
-          aria-label="Past Earthquake Data"
-        >
-          <Calendar className="h-5 w-5" />
-          {isMobile && <span className="ml-2">History</span>}
-        </Button>
-
         {/* Notification button */}
         <Button
           variant="outline"
@@ -644,9 +619,6 @@ export default function EarthquakeMap() {
         </Modal>
       )}
 
-      {/* Historical Earthquake Viewer */}
-      {showHistoricalData && <HistoricalEarthquakeViewer onClose={() => setShowHistoricalData(false)} />}
-
       {/* Admin Interface - using our new component */}
       {showAdminPanel && leafletMapRef.current && leafletMapRef.current.map && leafletMapRef.current.L && (
         <AdminInterface
@@ -659,7 +631,7 @@ export default function EarthquakeMap() {
       {/* Seismometer Display - draggable panel */}
       {selectedSeismometer && (
         <DraggablePanel title={`${selectedSeismometer.name} Seismometer`} onClose={() => setSelectedSeismometer(null)}>
-          <SeismometerDisplay seismometer={selectedSeismometer} onClose={() => setSelectedSeismometer(null)} />
+          <SeismometerDisplay seismometer={selectedSeismometer} />
         </DraggablePanel>
       )}
 

@@ -59,7 +59,6 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "@upstash/redis": "latest",
-    "swr": "latest",
     "leaflet": "latest"
   },
   "devDependencies": {

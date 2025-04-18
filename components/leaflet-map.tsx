@@ -432,7 +432,7 @@ height: 0;
               [maxLat, maxLng],
             ]
 
-            // Create rectangle with a blue color and semi-transparent fill
+            // Create rectangle
             zoneRectRef.current = L.rectangle(bounds, {
               color: "#3498DB",
               weight: 2,
