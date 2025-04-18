@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic"
 import { Suspense, useEffect } from "react"
 import { VersionChecker } from "@/components/version-checker"
-import { EnvDebugger } from "@/components/env-debugger"
 
 // Dynamically import the ReferencesButton with no SSR
 const ReferencesButton = dynamic(() => import("@/components/references-button"), {
@@ -51,7 +50,6 @@ export default function ClientPage() {
         </Suspense>
         <ReferencesButton />
         <VersionChecker />
-        <EnvDebugger />
       </div>
     </main>
   )
