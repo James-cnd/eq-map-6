@@ -19,6 +19,7 @@ import {
   Bell,
   Youtube,
   RefreshCw,
+  Calendar,
 } from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import EarthquakeSidebar from "@/components/earthquake-sidebar"
@@ -52,6 +53,12 @@ const RaspberryShakeInfo = dynamic(() => import("@/components/raspberry-shake-in
 const YoutubePlayer = dynamic(() => import("@/components/youtube-player"), {
   ssr: false,
   loading: () => <div className="p-4 bg-gray-900 text-white">Loading YouTube player...</div>,
+})
+
+// Add this import at the top with the other dynamic imports
+const HistoricalEarthquakeViewer = dynamic(() => import("@/components/historical-earthquake-viewer"), {
+  ssr: false,
+  loading: () => <div className="p-4 bg-gray-900 text-white">Loading historical data viewer...</div>,
 })
 
 // Import the AdminInterface component
@@ -116,6 +123,9 @@ export default function EarthquakeMap() {
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [showRaspberryShakeInfo, setShowRaspberryShakeInfo] = useState(false)
   const [showYoutubePlayer, setShowYoutubePlayer] = useLocalStorage("earthquakeShowYoutubePlayer", false)
+
+  // Add this state variable with the other state declarations
+  const [showHistoricalData, setShowHistoricalData] = useState(false)
 
   // Add a new state variable for connection status after the other state declarations
   const [isConnected, setIsConnected] = useState(true)
@@ -525,6 +535,19 @@ export default function EarthquakeMap() {
             <span className="absolute -top-1 -right-1 bg-yellow-500 text-xs rounded-full w-3 h-3"></span>
           )}
         </Button>
+        <Button
+          variant="outline"
+          size={isMobile ? "default" : "icon"}
+          className={`bg-gray-900/80 border-gray-700 hover:bg-gray-800 text-white ${
+            showHistoricalData ? "ring-2 ring-white" : ""
+          }`}
+          onClick={() => setShowHistoricalData(true)}
+          title="Past Earthquake Data"
+          aria-label="Past Earthquake Data"
+        >
+          <Calendar className="h-5 w-5" />
+          {isMobile && <span className="ml-2">History</span>}
+        </Button>
       </div>
 
       {/* Sidebar panel - always shown with list by default, replaced with settings when clicked */}
@@ -645,6 +668,9 @@ export default function EarthquakeMap() {
 
       {/* Add the welcome message component to the JSX, right before the closing </div> of the main component */}
       {showWelcomeMessage && <WelcomeMessage onClose={() => setShowWelcomeMessage(false)} />}
+
+      {/* Historical Earthquake Viewer */}
+      {showHistoricalData && <HistoricalEarthquakeViewer onClose={() => setShowHistoricalData(false)} />}
     </div>
   )
 }

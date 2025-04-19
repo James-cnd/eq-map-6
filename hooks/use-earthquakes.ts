@@ -4,6 +4,43 @@ import { useState, useEffect, useRef } from "react"
 import type { Earthquake } from "@/types/earthquake"
 import { useGlobalSettings } from "./use-global-settings"
 
+// Sample data to use as fallback when API fails
+const FALLBACK_DATA: Earthquake[] = [
+  {
+    id: "fallback-1",
+    timestamp: new Date().toISOString(),
+    latitude: 63.9,
+    longitude: -22.0,
+    depth: 5.2,
+    size: 3.5,
+    quality: 90,
+    humanReadableLocation: "Reykjanes Peninsula (63.90°N, 22.00°W)",
+    review: "mlw",
+  },
+  {
+    id: "fallback-2",
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    latitude: 64.0,
+    longitude: -21.8,
+    depth: 3.1,
+    size: 2.7,
+    quality: 85,
+    humanReadableLocation: "Near Reykjavík (64.00°N, 21.80°W)",
+    review: "am",
+  },
+  {
+    id: "fallback-3",
+    timestamp: new Date(Date.now() - 7200000).toISOString(),
+    latitude: 63.8,
+    longitude: -22.2,
+    depth: 6.5,
+    size: 1.9,
+    quality: 80,
+    humanReadableLocation: "Reykjanes Peninsula (63.80°N, 22.20°W)",
+    review: "mlw",
+  },
+]
+
 export function useEarthquakes() {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -12,6 +49,7 @@ export function useEarthquakes() {
   const [isMockData, setIsMockData] = useState(false)
   const lastSuccessfulFetch = useRef<number | null>(null)
   const isFetchingRef = useRef(false)
+  const failedAttemptsRef = useRef(0)
 
   // Get refresh interval from global settings
   const { globalSettings } = useGlobalSettings()
@@ -26,7 +64,11 @@ export function useEarthquakes() {
 
       try {
         isFetchingRef.current = true
-        setError(null)
+
+        // Don't clear error if we're retrying - this keeps the error message visible
+        if (failedAttemptsRef.current === 0) {
+          setError(null)
+        }
 
         // Check if we need to throttle requests (if last fetch was too recent)
         const now = Date.now()
@@ -45,34 +87,73 @@ export function useEarthquakes() {
           try {
             console.log(`Attempt ${retryCount + 1}: Fetching earthquake data...`)
 
-            // Make the request to our API endpoint
-            const response = await fetch("/api/earthquakes", {
-              cache: "no-store",
-              next: { revalidate: 0 },
-            })
+            // Make the request to our API endpoint with a timeout
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
 
-            if (!response.ok) {
-              // Special handling for rate limiting (429)
-              if (response.status === 429) {
-                console.warn("Rate limit exceeded. Backing off...")
-                throw new Error("Rate limit exceeded. Please try again later.")
+            try {
+              const response = await fetch("/api/earthquakes", {
+                cache: "no-store",
+                next: { revalidate: 0 },
+                signal: controller.signal,
+              })
+
+              // Clear the timeout
+              clearTimeout(timeoutId)
+
+              if (!response.ok) {
+                // Special handling for rate limiting (429)
+                if (response.status === 429) {
+                  console.warn("Rate limit exceeded. Backing off...")
+                  throw new Error("Rate limit exceeded. Please try again later.")
+                }
+                throw new Error(`API returned status ${response.status}`)
               }
-              throw new Error(`API returned status ${response.status}`)
-            }
 
-            const data = await response.json()
+              // Get the response text first to check if it's valid JSON
+              const responseText = await response.text()
 
-            if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
-              setEarthquakes(data.data)
-              setLastUpdated(data.timestamp || Date.now())
-              lastSuccessfulFetch.current = Date.now()
-              setIsLoading(false)
-              success = true
-              return
-            } else {
-              // If we got a response but no data, show error
-              console.error("No earthquake data found in API response:", data)
-              throw new Error(data.error || "No earthquake data found in API response")
+              // Check if the response is empty
+              if (!responseText || responseText.trim() === "") {
+                console.error("Empty response received from API")
+                throw new Error("Empty response received from API")
+              }
+
+              // Try to parse the JSON
+              let data
+              try {
+                data = JSON.parse(responseText)
+              } catch (parseError) {
+                console.error("Failed to parse JSON response:", parseError)
+                throw new Error("Invalid JSON response from API")
+              }
+
+              if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
+                setEarthquakes(data.data)
+                setLastUpdated(data.timestamp || Date.now())
+                lastSuccessfulFetch.current = Date.now()
+                setIsLoading(false)
+                setIsMockData(false)
+                failedAttemptsRef.current = 0 // Reset failed attempts counter
+                success = true
+                return
+              } else {
+                // If we got a response but no data, show error
+                console.error("No earthquake data found in API response:", data)
+                throw new Error(data.error || "No earthquake data found in API response")
+              }
+            } catch (abortError) {
+              // Clear the timeout
+              clearTimeout(timeoutId)
+
+              // Check if it was an abort error (timeout)
+              if (abortError.name === "AbortError") {
+                console.error("Request timed out after 15 seconds")
+                throw new Error("Request to earthquake API timed out")
+              }
+
+              // Re-throw other errors
+              throw abortError
             }
           } catch (apiError) {
             console.error(`Attempt ${retryCount + 1} failed:`, apiError)
@@ -90,6 +171,7 @@ export function useEarthquakes() {
         // If we reach here and success is still false, use existing data if available
         if (!success) {
           console.log("All API attempts failed")
+          failedAttemptsRef.current += 1
 
           // Use existing data if available
           if (earthquakes.length > 0 && lastSuccessfulFetch.current) {
@@ -99,14 +181,18 @@ export function useEarthquakes() {
             return
           }
 
-          // If no existing data, show error
-          setEarthquakes([])
+          // If no existing data, use fallback data
+          console.log("Using fallback earthquake data")
+          setEarthquakes(FALLBACK_DATA)
+          setLastUpdated(Date.now())
           setIsLoading(false)
-          setError(new Error("Unable to fetch earthquake data. Please try again later."))
+          setIsMockData(true)
+          setError(new Error("Unable to fetch earthquake data. Showing sample data."))
           return
         }
       } catch (err) {
         console.error("Error fetching earthquake data:", err)
+        failedAttemptsRef.current += 1
 
         // If we have existing data, keep using it instead of showing an error
         if (earthquakes.length > 0 && lastSuccessfulFetch.current) {
@@ -116,10 +202,17 @@ export function useEarthquakes() {
           return
         }
 
-        // Otherwise, show error
-        setEarthquakes([])
+        // Use fallback data if we have no existing data
+        console.log("Using fallback earthquake data")
+        setEarthquakes(FALLBACK_DATA)
+        setLastUpdated(Date.now())
         setIsLoading(false)
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"))
+        setIsMockData(true)
+        setError(
+          err instanceof Error
+            ? new Error(`Error: ${err.message}. Showing sample data.`)
+            : new Error("Unknown error occurred. Showing sample data."),
+        )
       } finally {
         setIsLoading(false)
         isFetchingRef.current = false

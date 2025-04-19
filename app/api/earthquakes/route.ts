@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
+
 export async function GET() {
   try {
     // Get current UTC time
@@ -40,119 +43,159 @@ export async function GET() {
       fields: ["event_id", "time", "lat", "long", "depth", "magnitude", "magnitude_type", "originating_system"],
     }
 
-    // Make the POST request
-    const response = await fetch("https://api.vedur.is/skjalftalisa/v1/quake/array", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    })
+    // Create an AbortController to handle timeouts
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
-    if (!response.ok) {
-      console.error(`API returned status ${response.status}`)
-      throw new Error(`API returned status ${response.status}`)
-    }
+    try {
+      // Make the POST request with timeout
+      const response = await fetch("https://api.vedur.is/skjalftalisa/v1/quake/array", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+        cache: "no-store",
+      })
 
-    const data = await response.json()
+      // Clear the timeout
+      clearTimeout(timeoutId)
 
-    // Log the full response for debugging
-    console.log("Full API response:", JSON.stringify(data))
-
-    // More robust checking for data structure
-    if (!data.data || !data.data.event_id) {
-      console.error("Unexpected API response format:", JSON.stringify(data).substring(0, 500))
-      throw new Error("Unexpected API response format")
-    }
-
-    // More robust checking for event_id
-    if (!Array.isArray(data.data.event_id) || data.data.event_id.length === 0) {
-      console.error("No earthquake data found in API response")
-      throw new Error("No earthquake data found in API response")
-    }
-
-    // Transform the data into a more usable format
-    const transformedData = []
-
-    // Process each earthquake
-    for (let i = 0; i < data.data.event_id.length; i++) {
-      try {
-        // Ensure all required fields exist
-        if (
-          data.data.time === undefined ||
-          data.data.lat === undefined ||
-          data.data.long === undefined ||
-          data.data.depth === undefined ||
-          data.data.magnitude === undefined
-        ) {
-          console.error("Missing required fields in earthquake data")
-          continue
-        }
-
-        // Convert Unix timestamp to date string
-        const unixTimestamp = Number.parseInt(data.data.time[i])
-        const quakeTime = new Date(unixTimestamp * 1000).toISOString()
-
-        const longitude = data.data.long[i]
-        const latitude = data.data.lat[i]
-
-        // Create a more descriptive human-readable location
-        let humanReadableLocation = `${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W`
-
-        // Add some basic region identification
-        if (latitude >= 63.7 && latitude <= 64.1 && longitude >= -23.0 && longitude <= -21.5) {
-          humanReadableLocation = `Reykjanes Peninsula (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        } else if (latitude >= 64.0 && latitude <= 64.3 && longitude >= -22.0 && longitude <= -21.5) {
-          humanReadableLocation = `Near Reykjavík (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        } else if (latitude >= 64.3 && latitude <= 64.5 && longitude >= -17.5 && longitude <= -17.0) {
-          humanReadableLocation = `Grímsvötn Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        } else if (latitude >= 64.6 && latitude <= 64.7 && longitude >= -17.6 && longitude <= -17.2) {
-          humanReadableLocation = `Bárðarbunga Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        } else if (latitude >= 63.5 && latitude <= 63.7 && longitude >= -19.2 && longitude <= -18.7) {
-          humanReadableLocation = `Katla Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        } else if (latitude >= 65.6 && latitude <= 65.8 && longitude >= -17.0 && longitude <= -16.6) {
-          humanReadableLocation = `Krafla Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
-        }
-
-        // Default to "am" if magnitude_type is undefined
-        const review = data.data.magnitude_type && data.data.magnitude_type[i] === "autmag" ? "am" : "mlw"
-
-        transformedData.push({
-          id: `${data.data.event_id[i]}`,
-          timestamp: quakeTime,
-          latitude: latitude,
-          longitude: longitude,
-          depth: data.data.depth[i],
-          size: data.data.magnitude[i],
-          quality: 0,
-          humanReadableLocation: humanReadableLocation,
-          review: review,
-        })
-      } catch (err) {
-        console.error(`Error processing earthquake at index ${i}:`, err)
-        // Continue with the next earthquake
+      if (!response.ok) {
+        console.error(`API returned status ${response.status}`)
+        throw new Error(`API returned status ${response.status}`)
       }
+
+      // Get the response text first to check if it's valid JSON
+      const responseText = await response.text()
+
+      // Check if the response is empty
+      if (!responseText || responseText.trim() === "") {
+        console.error("Empty response received from API")
+        throw new Error("Empty response received from API")
+      }
+
+      // Try to parse the JSON
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error("Failed to parse JSON response:", parseError)
+        console.error("Response text:", responseText.substring(0, 500) + "...")
+        throw new Error("Invalid JSON response from API")
+      }
+
+      // Log the full response for debugging
+      console.log("API response received, data length:", responseText.length)
+
+      // More robust checking for data structure
+      if (!data.data || !data.data.event_id) {
+        console.error("Unexpected API response format:", JSON.stringify(data).substring(0, 500))
+        throw new Error("Unexpected API response format")
+      }
+
+      // More robust checking for event_id
+      if (!Array.isArray(data.data.event_id) || data.data.event_id.length === 0) {
+        console.error("No earthquake data found in API response")
+        throw new Error("No earthquake data found in API response")
+      }
+
+      // Transform the data into a more usable format
+      const transformedData = []
+
+      // Process each earthquake
+      for (let i = 0; i < data.data.event_id.length; i++) {
+        try {
+          // Ensure all required fields exist
+          if (
+            data.data.time === undefined ||
+            data.data.lat === undefined ||
+            data.data.long === undefined ||
+            data.data.depth === undefined ||
+            data.data.magnitude === undefined
+          ) {
+            console.error("Missing required fields in earthquake data")
+            continue
+          }
+
+          // Convert Unix timestamp to date string
+          const unixTimestamp = Number.parseInt(data.data.time[i])
+          const quakeTime = new Date(unixTimestamp * 1000).toISOString()
+
+          const longitude = data.data.long[i]
+          const latitude = data.data.lat[i]
+
+          // Create a more descriptive human-readable location
+          let humanReadableLocation = `${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W`
+
+          // Add some basic region identification
+          if (latitude >= 63.7 && latitude <= 64.1 && longitude >= -23.0 && longitude <= -21.5) {
+            humanReadableLocation = `Reykjanes Peninsula (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          } else if (latitude >= 64.0 && latitude <= 64.3 && longitude >= -22.0 && longitude <= -21.5) {
+            humanReadableLocation = `Near Reykjavík (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          } else if (latitude >= 64.3 && latitude <= 64.5 && longitude >= -17.5 && longitude <= -17.0) {
+            humanReadableLocation = `Grímsvötn Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          } else if (latitude >= 64.6 && latitude <= 64.7 && longitude >= -17.6 && longitude <= -17.2) {
+            humanReadableLocation = `Bárðarbunga Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          } else if (latitude >= 63.5 && latitude <= 63.7 && longitude >= -19.2 && longitude <= -18.7) {
+            humanReadableLocation = `Katla Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          } else if (latitude >= 65.6 && latitude <= 65.8 && longitude >= -17.0 && longitude <= -16.6) {
+            humanReadableLocation = `Krafla Area (${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°W)`
+          }
+
+          // Default to "am" if magnitude_type is undefined
+          const review = data.data.magnitude_type && data.data.magnitude_type[i] === "autmag" ? "am" : "mlw"
+
+          transformedData.push({
+            id: `${data.data.event_id[i]}`,
+            timestamp: quakeTime,
+            latitude: latitude,
+            longitude: longitude,
+            depth: data.data.depth[i],
+            size: data.data.magnitude[i],
+            quality: 0,
+            humanReadableLocation: humanReadableLocation,
+            review: review,
+          })
+        } catch (err) {
+          console.error(`Error processing earthquake at index ${i}:`, err)
+          // Continue with the next earthquake
+        }
+      }
+
+      // Sort by timestamp (newest first)
+      transformedData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+      return NextResponse.json({
+        success: true,
+        data: transformedData,
+        timestamp: Date.now(),
+        count: transformedData.length,
+      })
+    } catch (fetchError) {
+      // Clear the timeout if there was an error
+      clearTimeout(timeoutId)
+
+      // Check if it was an abort error (timeout)
+      if (fetchError.name === "AbortError") {
+        console.error("Request timed out after 10 seconds")
+        throw new Error("Request to earthquake API timed out")
+      }
+
+      // Re-throw other errors
+      throw fetchError
     }
-
-    // Sort by timestamp (newest first)
-    transformedData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-    return NextResponse.json({
-      success: true,
-      data: transformedData,
-      timestamp: Date.now(),
-      count: transformedData.length,
-    })
   } catch (error) {
     console.error("Error fetching earthquake data:", error)
 
-    // Return error response
+    // Return error response with more details
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error occurred",
+        errorDetails: error instanceof Error ? error.stack : undefined,
         timestamp: Date.now(),
       },
       { status: 500 },
