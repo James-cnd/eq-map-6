@@ -125,6 +125,7 @@ export function useEarthquakes() {
                 data = JSON.parse(responseText)
               } catch (parseError) {
                 console.error("Failed to parse JSON response:", parseError)
+                console.error("Response text:", responseText.substring(0, 500) + "...")
                 throw new Error("Invalid JSON response from API")
               }
 

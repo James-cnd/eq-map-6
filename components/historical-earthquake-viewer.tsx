@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { X, ChevronLeft, ChevronRight } from "lucide-react"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Slider } from "@/components/ui/slider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Earthquake } from "@/types/earthquake"
 import { ICELAND_ZONES } from "@/types/zones"
 import dynamic from "next/dynamic"
@@ -44,14 +45,17 @@ const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] // Includ
 
 export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthquakeViewerProps) {
   // State for time period selection
-  const [yearRange, setYearRange] = useState<[number, number]>([2023, 2024])
-  const [monthRange, setMonthRange] = useState<[number, number]>([0, 11]) // 0-11 for Jan-Dec
-  const [dayRange, setDayRange] = useState<[number, number]>([1, 31])
-  const [hourRange, setHourRange] = useState<[number, number]>([0, 23])
-  const [timeView, setTimeView] = useState<"years" | "months" | "days" | "hours">("months")
+  const [startYear, setStartYear] = useState(2023)
+  const [endYear, setEndYear] = useState(2024)
+  const [startMonth, setStartMonth] = useState(0) // 0-11 for Jan-Dec
+  const [endMonth, setEndMonth] = useState(11) // 0-11 for Jan-Dec
+  const [startDay, setStartDay] = useState(1)
+  const [endDay, setEndDay] = useState(31)
+  const [startHour, setStartHour] = useState(0)
+  const [endHour, setEndHour] = useState(23)
 
   // State for filter settings
-  const [magnitudeRange, setMagnitudeRange] = useLocalStorage<[number, number]>("historicalMagnitudeRange", [0, 8])
+  const [magnitudeRange, setMagnitudeRange] = useLocalStorage<[number, number]>("historicalMagnitudeRange", [-2, 8])
   const [depthRange, setDepthRange] = useLocalStorage<[number, number]>("historicalDepthRange", [0, 25])
   const [zoneFilter, setZoneFilter] = useLocalStorage("historicalZoneFilter", "all")
 
@@ -71,21 +75,9 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
   const mapRef = useRef<any>(null)
 
   // Calculate max days based on selected month
-  const getMaxDaysInMonth = () => {
-    // If month range spans multiple months, use 31 as max
-    if (monthRange[0] !== monthRange[1]) {
-      return 31
-    }
-    return DAYS_IN_MONTH[monthRange[0]]
+  const getMaxDaysInMonth = (month: number) => {
+    return DAYS_IN_MONTH[month]
   }
-
-  // Adjust day range when month changes
-  useEffect(() => {
-    const maxDays = getMaxDaysInMonth()
-    if (dayRange[1] > maxDays) {
-      setDayRange([dayRange[0], maxDays])
-    }
-  }, [monthRange, dayRange])
 
   // Fetch historical earthquake data
   useEffect(() => {
@@ -95,22 +87,8 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
 
       try {
         // Calculate start and end dates based on selection
-        let startDate: Date, endDate: Date
-
-        if (timeView === "years") {
-          startDate = new Date(yearRange[0], 0, 1, 0, 0, 0)
-          endDate = new Date(yearRange[1], 11, 31, 23, 59, 59)
-        } else if (timeView === "months") {
-          startDate = new Date(yearRange[0], monthRange[0], 1, 0, 0, 0)
-          endDate = new Date(yearRange[1], monthRange[1], DAYS_IN_MONTH[monthRange[1]], 23, 59, 59)
-        } else if (timeView === "days") {
-          startDate = new Date(yearRange[0], monthRange[0], dayRange[0], 0, 0, 0)
-          endDate = new Date(yearRange[0], monthRange[0], dayRange[1], 23, 59, 59)
-        } else {
-          // Hours view
-          startDate = new Date(yearRange[0], monthRange[0], dayRange[0], hourRange[0], 0, 0)
-          endDate = new Date(yearRange[0], monthRange[0], dayRange[0], hourRange[1], 59, 59)
-        }
+        const startDate = new Date(startYear, startMonth, startDay, startHour, 0, 0)
+        const endDate = new Date(endYear, endMonth, endDay, endHour, 59, 59)
 
         // Format dates for API
         const startStr = startDate.toISOString()
@@ -135,7 +113,7 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
           setEarthquakes(filteredData)
           setIsMockData(data.isMockData || false)
         } else {
-          throw new Error(data.error || "No earthquake data found")
+          throw new Error(data.error || data.message || "No earthquake data found")
         }
       } catch (err) {
         console.error("Error fetching historical earthquake data:", err)
@@ -147,7 +125,7 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
     }
 
     fetchHistoricalData()
-  }, [yearRange, monthRange, dayRange, hourRange, timeView])
+  }, [startYear, endYear, startMonth, endMonth, startDay, endDay, startHour, endHour])
 
   // Filter earthquakes based on settings
   const filteredEarthquakes = earthquakes.filter((quake) => {
@@ -183,243 +161,25 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
 
   // Format date range for display
   const formatDateRange = () => {
-    let result = ""
-
-    if (timeView === "years") {
-      result = `${yearRange[0]} - ${yearRange[1]}`
-    } else if (timeView === "months") {
-      result = `${MONTHS[monthRange[0]]} ${yearRange[0]} - ${MONTHS[monthRange[1]]} ${yearRange[1]}`
-    } else if (timeView === "days") {
-      result = `${dayRange[0]}-${dayRange[1]} ${MONTHS[monthRange[0]]} ${yearRange[0]}`
-    } else {
-      // Hours
-      result = `${hourRange[0]}:00 - ${hourRange[1]}:59, ${dayRange[0]} ${MONTHS[monthRange[0]]} ${yearRange[0]}`
-    }
-
-    return result
+    return `${startYear}-${startMonth + 1}-${startDay} ${startHour}:00 - ${endYear}-${endMonth + 1}-${endDay} ${endHour}:59`
   }
 
-  // Render time period selector based on current view
-  const renderTimePeriodSelector = () => {
-    switch (timeView) {
-      case "years":
-        return (
-          <div className="p-4">
-            <h3 className="font-semibold mb-2">Year Range</h3>
-            <div className="mb-1 flex justify-between text-sm">
-              <span>{yearRange[0]}</span>
-              <span>{yearRange[1]}</span>
-            </div>
-            <Slider
-              value={yearRange}
-              min={2020}
-              max={2024}
-              step={1}
-              onValueChange={(value) => setYearRange(value as [number, number])}
-              className="mb-6"
-            />
-          </div>
-        )
-      case "months":
-        return (
-          <div className="p-4">
-            <h3 className="font-semibold mb-2">Year Range</h3>
-            <div className="mb-1 flex justify-between text-sm">
-              <span>{yearRange[0]}</span>
-              <span>{yearRange[1]}</span>
-            </div>
-            <Slider
-              value={yearRange}
-              min={2020}
-              max={2024}
-              step={1}
-              onValueChange={(value) => setYearRange(value as [number, number])}
-              className="mb-6"
-            />
+  const [isMobile, setIsMobile] = useState(false)
 
-            <h3 className="font-semibold mb-2">Month Range</h3>
-            <div className="mb-1 flex justify-between text-sm">
-              <span>{MONTHS[monthRange[0]]}</span>
-              <span>{MONTHS[monthRange[1]]}</span>
-            </div>
-            <Slider
-              value={monthRange}
-              min={0}
-              max={11}
-              step={1}
-              onValueChange={(value) => setMonthRange(value as [number, number])}
-              className="mb-6"
-            />
-          </div>
-        )
-      case "days":
-        return (
-          <div className="p-4">
-            <h3 className="font-semibold mb-2">Month</h3>
-            <div className="flex justify-between">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  let newDay = dayRange[0] - 1
-                  let newMonth = monthRange[0]
-                  let newYear = yearRange[0]
-
-                  if (newDay < 1) {
-                    newMonth = newMonth > 0 ? newMonth - 1 : 11
-                    newYear = newMonth === 11 && monthRange[0] === 0 ? newYear - 1 : newYear
-                    newDay = DAYS_IN_MONTH[newMonth]
-                  }
-
-                  if (newYear >= 2020) {
-                    setDayRange([newDay, newDay])
-                    setMonthRange([newMonth, newMonth])
-                    setYearRange([newYear, newYear])
-                  }
-                }}
-                disabled={yearRange[0] === 2020 && monthRange[0] === 0 && dayRange[0] === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="py-2 px-4 font-medium">
-                {MONTHS[monthRange[0]]} {yearRange[0]}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  let newDay = dayRange[0] + 1
-                  let newMonth = monthRange[0]
-                  let newYear = yearRange[0]
-
-                  if (newDay > DAYS_IN_MONTH[newMonth]) {
-                    newDay = 1
-                    newMonth = newMonth < 11 ? newMonth + 1 : 0
-                    newYear = newMonth === 0 && monthRange[0] === 11 ? newYear + 1 : newYear
-                  }
-
-                  if (newYear <= 2024) {
-                    setDayRange([newDay, newDay])
-                    setMonthRange([newMonth, newMonth])
-                    setYearRange([newYear, newYear])
-                  }
-                }}
-                disabled={yearRange[0] === 2024 && monthRange[0] === 11 && dayRange[0] === 31}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <h3 className="font-semibold mb-2 mt-4">Day Range</h3>
-            <div className="mb-1 flex justify-between text-sm">
-              <span>{dayRange[0]}</span>
-              <span>{dayRange[1]}</span>
-            </div>
-            <Slider
-              value={dayRange}
-              min={1}
-              max={getMaxDaysInMonth()}
-              step={1}
-              onValueChange={(value) => setDayRange(value as [number, number])}
-              className="mb-6"
-            />
-          </div>
-        )
-      case "hours":
-        return (
-          <div className="p-4">
-            <h3 className="font-semibold mb-2">Date</h3>
-            <div className="flex justify-between mb-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  let newDay = dayRange[0] - 1
-                  let newMonth = monthRange[0]
-                  let newYear = yearRange[0]
-
-                  if (newDay < 1) {
-                    newMonth = newMonth > 0 ? newMonth - 1 : 11
-                    newYear = newMonth === 11 && monthRange[0] === 0 ? newYear - 1 : newYear
-                    newDay = DAYS_IN_MONTH[newMonth]
-                  }
-
-                  if (newYear >= 2020) {
-                    setDayRange([newDay, newDay])
-                    setMonthRange([newMonth, newMonth])
-                    setYearRange([newYear, newYear])
-                  }
-                }}
-                disabled={yearRange[0] === 2020 && monthRange[0] === 0 && dayRange[0] === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="py-2 px-4 font-medium">
-                {dayRange[0]} {MONTHS[monthRange[0]]} {yearRange[0]}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  let newDay = dayRange[0] + 1
-                  let newMonth = monthRange[0]
-                  let newYear = yearRange[0]
-
-                  if (newDay > DAYS_IN_MONTH[newMonth]) {
-                    newDay = 1
-                    newMonth = newMonth < 11 ? newMonth + 1 : 0
-                    newYear = newMonth === 0 && monthRange[0] === 11 ? newYear + 1 : newYear
-                  }
-
-                  if (newYear <= 2024) {
-                    setDayRange([newDay, newDay])
-                    setMonthRange([newMonth, newMonth])
-                    setYearRange([newYear, newYear])
-                  }
-                }}
-                disabled={yearRange[0] === 2024 && monthRange[0] === 11 && dayRange[0] === 31}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <h3 className="font-semibold mb-2">Hour Range</h3>
-            <div className="mb-1 flex justify-between text-sm">
-              <span>{hourRange[0]}:00</span>
-              <span>{hourRange[1]}:59</span>
-            </div>
-            <Slider
-              value={hourRange}
-              min={0}
-              max={23}
-              step={1}
-              onValueChange={(value) => setHourRange(value as [number, number])}
-              className="mb-6"
-            />
-
-            <div className="grid grid-cols-6 gap-1 mt-4">
-              {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
-                <Button
-                  key={hour}
-                  variant="outline"
-                  size="sm"
-                  className={`text-xs ${
-                    hour >= hourRange[0] && hour <= hourRange[1] ? "bg-blue-600 border-blue-600" : ""
-                  }`}
-                  onClick={() => setHourRange([hour, hour])}
-                >
-                  {hour}:00
-                </Button>
-              ))}
-            </div>
-          </div>
-        )
-      default:
-        return null
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768) // Adjust the breakpoint as needed
     }
-  }
 
-  const isMobile = window.innerWidth <= 768
+    // Set initial value
+    handleResize()
+
+    // Add event listener
+    window.addEventListener("resize", handleResize)
+
+    // Remove event listener on cleanup
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   return (
     <div className="fixed inset-0 z-[1004] bg-gray-950 text-white overflow-hidden flex flex-col">
@@ -437,43 +197,76 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
         <div className="w-64 bg-gray-900 border-r border-gray-700 flex flex-col">
           <div className="p-3 border-b border-gray-700">
             <h3 className="font-semibold mb-2">Time Period</h3>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className={timeView === "years" ? "bg-blue-600 border-blue-600" : ""}
-                onClick={() => setTimeView("years")}
-              >
-                Years
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={timeView === "months" ? "bg-blue-600 border-blue-600" : ""}
-                onClick={() => setTimeView("months")}
-              >
-                Months
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={timeView === "days" ? "bg-blue-600 border-blue-600" : ""}
-                onClick={() => setTimeView("days")}
-              >
-                Days
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={timeView === "hours" ? "bg-blue-600 border-blue-600" : ""}
-                onClick={() => setTimeView("hours")}
-              >
-                Hours
-              </Button>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="year-range" className="text-sm mb-1 block">
+                  Year Range: {startYear} - {endYear}
+                </Label>
+                <Slider
+                  id="year-range"
+                  min={2020}
+                  max={2024}
+                  step={1}
+                  value={[startYear, endYear]}
+                  onValueChange={(value) => {
+                    setStartYear(value[0])
+                    setEndYear(value[1])
+                  }}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="month-range" className="text-sm mb-1 block">
+                  Month Range: {MONTHS[startMonth]} - {MONTHS[endMonth]}
+                </Label>
+                <Slider
+                  id="month-range"
+                  min={0}
+                  max={11}
+                  step={1}
+                  value={[startMonth, endMonth]}
+                  onValueChange={(value) => {
+                    setStartMonth(value[0])
+                    setEndMonth(value[1])
+                  }}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="day-range" className="text-sm mb-1 block">
+                  Day Range: {startDay} - {endDay}
+                </Label>
+                <Slider
+                  id="day-range"
+                  min={1}
+                  max={getMaxDaysInMonth(startMonth)}
+                  step={1}
+                  value={[startDay, endDay]}
+                  onValueChange={(value) => {
+                    setStartDay(value[0])
+                    setEndDay(value[1])
+                  }}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="hour-range" className="text-sm mb-1 block">
+                  Hour Range: {startHour}:00 - {endHour}:59
+                </Label>
+                <Slider
+                  id="hour-range"
+                  min={0}
+                  max={23}
+                  step={1}
+                  value={[startHour, endHour]}
+                  onValueChange={(value) => {
+                    setStartHour(value[0])
+                    setEndHour(value[1])
+                  }}
+                />
+              </div>
             </div>
           </div>
-
-          <div className="flex-1 overflow-y-auto">{renderTimePeriodSelector()}</div>
 
           <div className="p-3 border-t border-gray-700">
             <div className="text-sm text-gray-400 mb-2">Current Selection:</div>
@@ -516,6 +309,13 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
                     <div>{error.message}</div>
                   </div>
                 </div>
+              ) : filteredEarthquakes.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center max-w-md p-4">
+                    <div className="text-xl mb-2">No Earthquakes Found</div>
+                    <div>Try adjusting your date range or filters to see more data.</div>
+                  </div>
+                </div>
               ) : (
                 <div className="h-full relative">
                   <LeafletMap
@@ -542,53 +342,61 @@ export default function HistoricalEarthquakeViewer({ onClose }: HistoricalEarthq
                 {/* Magnitude filter */}
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Magnitude Range</h3>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>Min: {magnitudeRange[0].toFixed(1)}</span>
-                    <span>Max: {magnitudeRange[1].toFixed(1)}</span>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label htmlFor="min-magnitude" className="text-sm mb-1 block">
+                        Minimum Magnitude: {magnitudeRange[0].toFixed(1)}
+                      </Label>
+                      <Slider
+                        value={[magnitudeRange[0]]}
+                        min={-2}
+                        max={magnitudeRange[1]}
+                        step={0.1}
+                        onValueChange={(value) => {
+                          setMagnitudeRange([value[0], magnitudeRange[1]])
+                        }}
+                        className="py-4"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="max-magnitude" className="text-sm mb-1 block">
+                        Maximum Magnitude: {magnitudeRange[1].toFixed(1)}
+                      </Label>
+                      <Slider
+                        value={[magnitudeRange[1]]}
+                        min={magnitudeRange[0]}
+                        max={8}
+                        step={0.1}
+                        onValueChange={(value) => {
+                          setMagnitudeRange([magnitudeRange[0], value[0]])
+                        }}
+                        className="py-4"
+                      />
+                    </div>
                   </div>
-                  <Slider
-                    defaultValue={magnitudeRange}
-                    min={0}
-                    max={8}
-                    step={0.1}
-                    onValueChange={(value) => setMagnitudeRange(value as [number, number])}
-                  />
-                </div>
-
-                {/* Depth filter */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Depth Range (km)</h3>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>Min: {depthRange[0].toFixed(1)} km</span>
-                    <span>Max: {depthRange[1].toFixed(1)} km</span>
-                  </div>
-                  <Slider
-                    defaultValue={depthRange}
-                    min={0}
-                    max={25}
-                    step={0.5}
-                    onValueChange={(value) => setDepthRange(value as [number, number])}
-                  />
                 </div>
 
                 {/* Zone filter */}
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Zone Filter</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ICELAND_ZONES.map((zone) => (
-                      <Button
-                        key={zone.id}
-                        variant={zoneFilter === zone.id ? "default" : "outline"}
-                        className={zoneFilter === zone.id ? "bg-blue-600" : ""}
-                        onClick={() => setZoneFilter(zone.id)}
-                      >
-                        {zone.name}
-                      </Button>
-                    ))}
-                  </div>
+                  <Select value={zoneFilter} onValueChange={setZoneFilter}>
+                    <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Select zone" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                      <SelectItem value="all" className="text-white hover:bg-gray-700">
+                        All Zones
+                      </SelectItem>
+                      {ICELAND_ZONES.map((zone) => (
+                        <SelectItem key={zone.id} value={zone.id} className="text-white hover:bg-gray-700">
+                          {zone.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Map display options */}
+                {/* Map display */}
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Map Display</h3>
                   <div className="space-y-3">
